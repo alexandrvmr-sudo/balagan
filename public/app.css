@@ -1,0 +1,72 @@
+/* БАЛАГАН · общие токены */
+@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;600;800&display=swap');
+
+:root {
+  --bg: #120c1f;
+  --bg-2: #1b1030;
+  --ink: #fdf7ff;
+  --dim: #a99cc4;
+  --rose: #ff2e63;
+  --gold: #ffd23f;
+  --mint: #2ec4b6;
+  --blue: #5a7dff;
+  --violet: #c77dff;
+  --line: rgba(255, 255, 255, 0.12);
+  --card: rgba(255, 255, 255, 0.055);
+  --card-hi: rgba(255, 255, 255, 0.1);
+
+  --display: 'Unbounded', 'Trebuchet MS', system-ui, sans-serif;
+  --text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  --r: 1.4rem;
+  --shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--text);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20%;
+  background:
+    radial-gradient(42vw 42vw at 12% 8%, rgba(255, 46, 99, 0.22), transparent 62%),
+    radial-gradient(38vw 38vw at 88% 14%, rgba(90, 125, 255, 0.2), transparent 62%),
+    radial-gradient(45vw 45vw at 50% 102%, rgba(46, 196, 182, 0.16), transparent 60%);
+  filter: blur(0.5px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.stage { position: relative; z-index: 1; }
+
+h1, h2, h3, .display { font-family: var(--display); font-weight: 900; letter-spacing: -0.02em; margin: 0; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  backdrop-filter: blur(8px);
+}
+
+.dim { color: var(--dim); }
+.caps { text-transform: uppercase; letter-spacing: 0.16em; font-weight: 800; }
+
+button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(1.6rem) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 60% { transform: scale(1.06); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-0.4rem) rotate(-1deg); } 60% { transform: translateX(0.4rem) rotate(1deg); } }
+
+.rise { animation: rise 0.42s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+.pop { animation: pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; }

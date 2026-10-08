@@ -1,0 +1,16 @@
+# Render: подключить репозиторий → Blueprint → задать ANTHROPIC_API_KEY
+services:
+  - type: web
+    name: balagan
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ANTHROPIC_API_KEY
+        sync: false        # вписывается в панели Render, в репозиторий не попадает
