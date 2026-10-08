@@ -6,7 +6,8 @@
   "description": "Балаган — вечериночные игры: телевизор как экран, телефоны как контроллеры",
   "scripts": {
     "start": "node server.mjs",
-    "dev": "node --watch server.mjs"
+    "dev": "node --watch server.mjs",
+    "party": "caffeinate -s node server.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -186,14 +186,24 @@ function localIp() {
   return n?.address || 'localhost';
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', async () => {
   const ip = localIp();
+  const phones = `${PUBLIC_URL || `http://${ip}:${PORT}`}/join`;
   console.log(`\n  🎪  БАЛАГАН\n`);
   console.log(`  Экран (телевизор):   http://localhost:${PORT}/`);
-  console.log(`  Телефоны:            ${PUBLIC_URL || `http://${ip}:${PORT}`}/join`);
+  console.log(`  Телефоны:            ${phones}`);
   if (PUBLIC_URL) console.log(`  Публичный адрес:     ${PUBLIC_URL}`);
   console.log(`  ИИ-задания:          ${aiEnabled ? 'включены' : 'выключены (нет ANTHROPIC_API_KEY)'}`);
-  console.log('');
+
+  // QR прямо в терминале — можно сканировать, не дожидаясь телевизора
+  if (process.env.BALAGAN_QR !== '0' && !PUBLIC_URL) {
+    try {
+      const art = await QRCode.toString(phones, { type: 'terminal', small: true, errorCorrectionLevel: 'L' });
+      console.log(`\n${art}`);
+    } catch {}
+  }
+  console.log(`  Телефоны должны быть в той же Wi-Fi. Если не открывается — разреши`);
+  console.log(`  входящие подключения для node: Системные настройки → Сеть → Файрвол.\n`);
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
