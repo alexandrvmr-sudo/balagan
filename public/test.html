@@ -60,8 +60,9 @@ let code = sessionStorage.getItem('balagan.sandbox') || '';
 let seat = 0;
 
 async function room(fresh) {
-  if (code && !fresh) return code;
-  const r = await fetch('/api/test/room').then((x) => x.json());
+  // сервер отдаёт прежнюю комнату, если она ещё жива, иначе заводит новую
+  const q = !fresh && code ? `?code=${code}` : '';
+  const r = await fetch(`/api/test/room${q}`).then((x) => x.json());
   code = r.code;
   sessionStorage.setItem('balagan.sandbox', code);
   return code;

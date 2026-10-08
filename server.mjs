@@ -40,9 +40,12 @@ const server = http.createServer(async (req, res) => {
 
   // песочница: одна команда — готовая комната со всеми окнами на одном экране
   if (p === '/api/test/room' && TEST_MODE) {
+    const asked = url.searchParams.get('code');
+    const alive = asked ? rooms.get(asked) : null;      // комната пережила перезагрузку страницы
+    if (alive) return json(res, { code: alive.code, reused: true });
     const room = rooms.create(shutka);
     console.log(`  + тестовая комната ${room.code}`);
-    return json(res, { code: room.code });
+    return json(res, { code: room.code, reused: false });
   }
 
   if (p === '/qr') {

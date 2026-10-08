@@ -348,14 +348,19 @@ async function cook(room) {
   s.cooking = true;
   room.push();
   const names = writers(room).map((p) => p.name);
-  const list = await generatePrompts({ count: writers(room).length * 2 + 6, topic: s.topic, names });
+  const { list, note } = await generatePrompts({ count: writers(room).length * 2 + 6, topic: s.topic, names });
   s.cooking = false;
+
   if (list?.length) {
+    // затравки раздаются через pop(), поэтому свежие кладём в конец — они уйдут первыми
+    const forFinal = list.slice(0, Math.min(2, list.length - 1));
+    const forRounds = list.slice(forFinal.length);
     s.aiPrompts = list;
-    s.pool = [...list, ...s.pool];
+    s.pool = [...s.pool, ...forRounds];
+    s.finalPool = [...s.finalPool, ...forFinal];
     s.aiNote = `${list.length} заданий от ИИ${s.topic ? ` · «${s.topic}»` : ''}`;
   } else {
-    s.aiNote = 'ИИ не ответил — играем на встроенном паке';
+    s.aiNote = `${note || 'ИИ не ответил'} — играем на встроенном паке`;
   }
 }
 

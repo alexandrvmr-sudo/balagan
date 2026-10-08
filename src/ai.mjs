@@ -32,9 +32,19 @@ const Quip = z.object({
   line: z.string().describe('Реплика ведущего, 4–14 слов'),
 });
 
+/* Разбираем отказ API в человеческую фразу для экрана */
+function explain(e) {
+  const msg = String(e?.message || e);
+  if (e?.status === 400 && /credit balance/i.test(msg)) return 'на счёте Anthropic нет средств';
+  if (e?.status === 401 || /authentication/i.test(msg)) return 'ключ не принят';
+  if (e?.status === 429) return 'слишком много запросов';
+  if (e?.status >= 500) return 'ИИ недоступен';
+  return 'ИИ не ответил';
+}
+
 /* --- затравки --- */
 export async function generatePrompts({ count = 12, topic = '', names = [] } = {}) {
-  if (!client) return null;
+  if (!client) return { list: null, note: null };
 
   const ctx = [
     topic ? `Тема и контекст вечеринки: ${topic}.` : 'Тема: обычная дружеская вечеринка.',
@@ -50,14 +60,15 @@ export async function generatePrompts({ count = 12, topic = '', names = [] } = {
       output_config: { effort: 'medium', format: zodOutputFormat(PromptPack) },
       messages: [{ role: 'user', content: ctx }],
     });
-    if (res.stop_reason === 'refusal') return null;
+    if (res.stop_reason === 'refusal') return { list: null, note: 'ИИ отказался от темы' };
     const list = (res.parsed_output?.prompts || [])
       .map((s) => String(s).trim())
       .filter((s) => s.length > 6 && s.includes('_'));
-    return list.length ? list : null;
+    return list.length ? { list, note: null } : { list: null, note: 'ИИ не ответил' };
   } catch (e) {
-    console.warn('[ai] затравки не вышли:', e?.message || e);
-    return null;
+    const note = explain(e);
+    console.warn(`[ai] затравки не вышли (${note}):`, e?.message || e);
+    return { list: null, note };
   }
 }
 
