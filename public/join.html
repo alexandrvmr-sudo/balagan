@@ -85,12 +85,17 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const urlCode = (location.pathname.match(/^\/j\/([A-Za-z]{4})/) || [])[1]?.toUpperCase() || '';
 
 let S = null, me = null, ws = null, retry = 0, key = '', err = '';
-// ?new=1 — хранить всё только в этой вкладке: так можно открыть несколько игроков на одном устройстве
-const box = new URLSearchParams(location.search).has('new') ? sessionStorage : localStorage;
+// ?new=1 — хранить только в этой вкладке; ?seat=N — отдельная ячейка, чтобы в одном окне жило несколько игроков
+const q = new URLSearchParams(location.search);
+const box = q.has('new') || q.has('seat') ? sessionStorage : localStorage;
+const seat = q.get('seat') ? `.${q.get('seat')}` : '';
 const store = {
-  get code() { return urlCode || box.getItem('balagan.code') || ''; },
-  get token() { return box.getItem(`balagan.token.${this.code}`) || ''; },
-  save(code, token) { box.setItem('balagan.code', code); if (token) box.setItem(`balagan.token.${code}`, token); },
+  get code() { return urlCode || box.getItem(`balagan.code${seat}`) || ''; },
+  get token() { return box.getItem(`balagan.token.${this.code}${seat}`) || ''; },
+  save(code, token) {
+    box.setItem(`balagan.code${seat}`, code);
+    if (token) box.setItem(`balagan.token.${code}${seat}`, token);
+  },
 };
 
 /* ---------- связь ---------- */
@@ -128,13 +133,13 @@ function drawEntry() {
   foot.innerHTML = `<button class="btn" id="go">Поехали</button>`;
   const nameEl = document.getElementById('name');
   const codeEl = document.getElementById('code');
-  nameEl.value = box.getItem('balagan.name') || '';
+  nameEl.value = box.getItem(`balagan.name${seat}`) || '';
   document.getElementById('go').onclick = () => {
     const code = (urlCode || codeEl?.value || '').toUpperCase().trim();
     const name = nameEl.value.trim();
     if (code.length !== 4) { err = 'Код — четыре буквы'; return drawEntry(); }
     if (!name) { err = 'Впиши имя'; return drawEntry(); }
-    box.setItem('balagan.name', name);
+    box.setItem(`balagan.name${seat}`, name);
     err = ''; app.innerHTML = '<div class="wait"><div class="em">🎪</div><div class="sub">заходим…</div></div>'; foot.innerHTML = '';
     connect(code, name);
   };
@@ -150,7 +155,7 @@ function render() {
        <span class="score">${s.you.score}</span>`
     : '';
 
-  const k = [s.phase, s.round, s.vote?.prompt, s.task?.prompt, s.waiting, s.canStart, s.players.length].join('|');
+  const k = [s.phase, s.round, s.vote?.prompt, s.task?.prompt, s.waiting, s.canStart, s.players.length, s.bots].join('|');
   if (k === key) return liveOnly();
   key = k;
 
@@ -185,9 +190,16 @@ function drawLobby() {
         <input id="topic" maxlength="120" placeholder="например: днюха Макса, все с работы" value="${esc(s.topic || '')}">
       </div>` : ''}`;
   foot.innerHTML = s.you?.isHost
-    ? `<button class="btn ${s.canStart ? '' : ''}" id="start" ${s.canStart ? '' : 'disabled'}>Начать игру</button>
+    ? `${s.test ? `<div style="display:flex;gap:8px">
+         <button class="btn ghost" id="bot" style="padding:12px">+ бот</button>
+         ${s.bots ? `<button class="btn ghost" id="nobots" style="padding:12px">убрать ботов (${s.bots})</button>` : ''}
+       </div>` : ''}
+       <button class="btn" id="start" ${s.canStart ? '' : 'disabled'}>Начать игру</button>
        <div class="sub" style="text-align:center">${s.aiEnabled ? 'задания придумает ИИ' : 'играем на встроенном паке'}</div>`
     : `<div class="sub" style="text-align:center">★ ждёт, пока все соберутся</div>`;
+
+  document.getElementById('bot')?.addEventListener('click', () => act({ a: 'addBot' }));
+  document.getElementById('nobots')?.addEventListener('click', () => act({ a: 'dropBots' }));
 
   const topic = document.getElementById('topic');
   if (topic) {
@@ -282,9 +294,14 @@ function tick() {
 }
 tick();
 
-/* старт: если уже есть токен для этой комнаты — входим молча */
-if (store.code && store.token) {
-  me = { name: box.getItem('balagan.name') || '' };
+/* песочница: имя задано в адресе — заходим сразу */
+const autoName = q.get('name');
+if (urlCode && autoName && !store.token) {
+  me = { name: autoName };
+  app.innerHTML = '<div class="wait"><div class="em">🎪</div><div class="sub">заходим…</div></div>';
+  connect(urlCode, autoName);
+} else if (store.code && store.token) {
+  me = { name: box.getItem(`balagan.name${seat}`) || '' };
   app.innerHTML = '<div class="wait"><div class="em">🎪</div><div class="sub">возвращаемся в игру…</div></div>';
   connect(store.code, me.name);
   setTimeout(() => { if (!S) { me = null; drawEntry(); } }, 3000);

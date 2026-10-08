@@ -11,7 +11,7 @@ import QRCode from 'qrcode';
 
 import './src/env.mjs';               // должен идти до модулей, читающих process.env
 import { Rooms } from './src/rooms.mjs';
-import shutka from './src/games/shutka.mjs';
+import shutka, { TEST_MODE } from './src/games/shutka.mjs';
 import { aiEnabled } from './src/ai.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -35,7 +35,14 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
 
   if (p === '/health') {
-    return json(res, { ok: true, ai: aiEnabled, ...rooms.stats });
+    return json(res, { ok: true, ai: aiEnabled, test: TEST_MODE, ...rooms.stats });
+  }
+
+  // песочница: одна команда — готовая комната со всеми окнами на одном экране
+  if (p === '/api/test/room' && TEST_MODE) {
+    const room = rooms.create(shutka);
+    console.log(`  + тестовая комната ${room.code}`);
+    return json(res, { code: room.code });
   }
 
   if (p === '/qr') {
@@ -53,6 +60,10 @@ const server = http.createServer(async (req, res) => {
   if (short) file = '/join.html';
   else if (p === '/' || p === '/tv') file = '/tv.html';
   else if (p === '/join') file = '/join.html';
+  else if (p === '/test') {
+    if (!TEST_MODE) return send(res, 404, 'text/plain; charset=utf-8', 'Тестовый режим выключен: запусти npm run test-party');
+    file = '/test.html';
+  }
 
   const fp = path.join(PUBLIC, file);
   if (!fp.startsWith(PUBLIC)) return send(res, 403, 'text/plain', 'nope');
@@ -114,7 +125,7 @@ async function handle(ws, msg) {
     }
     ws.meta = { role: 'tv', room, playerId: null };
     room.sockets.add(ws);
-    say({ t: 'welcome', role: 'tv', code: room.code, joinUrl: joinUrl(room.code, ws.meta.origin), ai: aiEnabled });
+    say({ t: 'welcome', role: 'tv', code: room.code, joinUrl: joinUrl(room.code, ws.meta.origin), ai: aiEnabled, test: TEST_MODE });
     room.push();
     return;
   }
@@ -194,6 +205,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log(`  Телефоны:            ${phones}`);
   if (PUBLIC_URL) console.log(`  Публичный адрес:     ${PUBLIC_URL}`);
   console.log(`  ИИ-задания:          ${aiEnabled ? 'включены' : 'выключены (нет ANTHROPIC_API_KEY)'}`);
+  if (TEST_MODE) console.log(`  🧪 Песочница:        http://localhost:${PORT}/test  — экран и телефоны в одном окне, боты играют сами`);
 
   // QR прямо в терминале — можно сканировать, не дожидаясь телевизора
   if (process.env.BALAGAN_QR !== '0' && !PUBLIC_URL) {

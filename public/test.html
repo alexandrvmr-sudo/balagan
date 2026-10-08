@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Балаган · песочница</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  html, body { overflow: hidden; height: 100%; }
+  .wrap { display: flex; flex-direction: column; height: 100vh; padding: 14px; gap: 12px; }
+  .bar { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; flex-wrap: wrap; }
+  .brand { font-family: var(--display); font-weight: 900; font-size: 16px; letter-spacing: .06em; }
+  .brand span { color: var(--rose); }
+  .chip { padding: 6px 12px; border-radius: 40px; background: var(--card); border: 1px solid var(--line);
+          font-size: 13px; font-weight: 700; }
+  .chip b { font-family: var(--display); color: var(--gold); letter-spacing: .12em; }
+  .btn { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 800;
+         background: rgba(255,255,255,.08); border: 1px solid var(--line); color: var(--ink); }
+  .btn:hover { background: rgba(255,255,255,.14); }
+  .btn.hot { background: linear-gradient(135deg, var(--rose), #ff6b3d); border: 0; color: #fff; }
+  .note { font-size: 12px; color: var(--dim); }
+
+  .desk { flex: 1 1 auto; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
+  @media (max-width: 1100px) {
+    .desk { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); }
+  }
+  .tv { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: #0d0918; }
+  .tv iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .phones { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; min-height: 0; }
+  .phone { flex: 0 0 240px; display: flex; flex-direction: column; border-radius: 20px; overflow: hidden;
+           border: 2px solid var(--line); background: #0d0918; }
+  .phone header { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                  padding: 7px 12px; font-size: 12px; font-weight: 800; background: rgba(255,255,255,.05); }
+  .phone header button { color: var(--dim); font-size: 15px; line-height: 1; }
+  .phone header button:hover { color: var(--rose); }
+  .phone iframe { flex: 1 1 auto; width: 100%; border: 0; display: block; }
+  .empty { display: grid; place-items: center; height: 100%; color: var(--dim); font-size: 14px; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div class="brand">БАЛА<span>ГАН</span> · песочница</div>
+    <div class="chip">комната <b id="code">····</b></div>
+    <button class="btn hot" id="add">+ телефон</button>
+    <button class="btn" id="fresh">новая комната</button>
+    <span class="note">Боты добавляются кнопкой на первом телефоне — он хост. Телефоны можно закрывать крестиком, игра переживает уход.</span>
+  </div>
+  <div class="desk">
+    <div class="tv"><iframe id="tv" title="экран"></iframe></div>
+    <div class="phones" id="phones"><div class="empty">Нажми «+ телефон»</div></div>
+  </div>
+</div>
+
+<script type="module">
+const NAMES = ['Макс', 'Лена', 'Петя', 'Оля', 'Гриша', 'Даша', 'Тимур', 'Соня'];
+const phones = document.getElementById('phones');
+const codeBox = document.getElementById('code');
+let code = sessionStorage.getItem('balagan.sandbox') || '';
+let seat = 0;
+
+async function room(fresh) {
+  if (code && !fresh) return code;
+  const r = await fetch('/api/test/room').then((x) => x.json());
+  code = r.code;
+  sessionStorage.setItem('balagan.sandbox', code);
+  return code;
+}
+
+async function boot(fresh) {
+  await room(fresh);
+  codeBox.textContent = code;
+  document.getElementById('tv').src = `/tv?code=${code}`;
+  phones.innerHTML = '<div class="empty">Нажми «+ телефон»</div>';
+  seat = 0;
+  addPhone(); addPhone(); addPhone();
+}
+
+function addPhone() {
+  if (seat === 0) phones.innerHTML = '';
+  seat++;
+  const n = seat;
+  const name = NAMES[(n - 1) % NAMES.length] + (n > NAMES.length ? ` ${n}` : '');
+  const box = document.createElement('div');
+  box.className = 'phone';
+  box.innerHTML = `
+    <header><span>${name}${n === 1 ? ' ★' : ''}</span><button title="закрыть">✕</button></header>
+    <iframe src="/j/${code}?seat=${n}&name=${encodeURIComponent(name)}" title="${name}"></iframe>`;
+  box.querySelector('button').onclick = () => box.remove();
+  phones.appendChild(box);
+  phones.scrollLeft = phones.scrollWidth;
+}
+
+document.getElementById('add').onclick = addPhone;
+document.getElementById('fresh').onclick = () => boot(true);
+boot(false);
+</script>
+</body>
+</html>

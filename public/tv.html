@@ -125,7 +125,8 @@ const byId = (id) => (S?.players || []).find((p) => p.id === id);
 
 /* ---------- связь ---------- */
 let ws, retry = 0;
-const saved = sessionStorage.getItem('balagan.tv.code');
+const askedCode = new URLSearchParams(location.search).get('code')?.toUpperCase();
+const saved = askedCode || sessionStorage.getItem('balagan.tv.code');
 
 function connect() {
   ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);

@@ -7,14 +7,19 @@ import { fileURLToPath } from 'node:url';
 import { aiEnabled, generatePrompts, hostQuip } from '../ai.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PACK = JSON.parse(fs.readFileSync(path.join(HERE, '..', '..', 'data', 'shutka.json'), 'utf8'));
+const data = (f) => JSON.parse(fs.readFileSync(path.join(HERE, '..', '..', 'data', f), 'utf8'));
+const PACK = data('shutka.json');
+const BOT_LINES = data('bot-lines.json').lines;
+
+export const TEST_MODE = process.env.BALAGAN_TEST === '1';
 
 export const MAX_WRITERS = 10;          // больше — заходят в зал
 const num = (env, def) => Number(process.env[env]) || def;
-const WRITE_SECONDS = num('BALAGAN_WRITE', 80);
-const VOTE_SECONDS = num('BALAGAN_VOTE', 20);
-const REVEAL_SECONDS = num('BALAGAN_REVEAL', 7);
-const SCORES_SECONDS = num('BALAGAN_SCORES', 8);
+const t = (env, normal, test) => num(env, TEST_MODE ? test : normal);
+const WRITE_SECONDS = t('BALAGAN_WRITE', 80, 35);
+const VOTE_SECONDS = t('BALAGAN_VOTE', 20, 12);
+const REVEAL_SECONDS = t('BALAGAN_REVEAL', 7, 5);
+const SCORES_SECONDS = t('BALAGAN_SCORES', 8, 5);
 const TOTAL_ROUNDS = Math.max(1, Math.min(5, num('BALAGAN_ROUNDS', 3)));
 const roundValue = (n, total) => (n >= total ? 3000 : n * 1000);
 const ANSWER_MAX = 90;
@@ -50,6 +55,7 @@ export default {
 
   /* ---------- вход игрока ---------- */
   onPlayerJoin(room, player) {
+    if (player.bot) return;
     const full = writers(room).length > MAX_WRITERS;
     const started = room.phase !== 'lobby';
     player.audience = full || started;
@@ -65,6 +71,19 @@ export default {
         if (!player.isHost || room.phase !== 'lobby') return;
         s.topic = String(msg.topic || '').slice(0, 120);
         return;
+
+      case 'addBot': {
+        if (!TEST_MODE || !player.isHost || room.phase !== 'lobby') return;
+        if (writers(room).length >= MAX_WRITERS) return;
+        addBot(room);
+        return;
+      }
+
+      case 'dropBots': {
+        if (!TEST_MODE || !player.isHost || room.phase !== 'lobby') return;
+        for (const b of room.players.filter((x) => x.bot)) room.dropPlayer(b.id);
+        return;
+      }
 
       case 'start': {
         if (!player.isHost || room.phase !== 'lobby') return;
@@ -184,7 +203,8 @@ export default {
     if (room.phase === 'lobby') {
       return { ...my, canStart: p.isHost && writers(room).length >= this.minPlayers,
         need: Math.max(0, this.minPlayers - writers(room).length),
-        topic: s.topic, aiEnabled: s.aiEnabled };
+        topic: s.topic, aiEnabled: s.aiEnabled,
+        test: TEST_MODE, bots: room.players.filter((x) => x.bot).length };
     }
 
     if (room.phase === 'cooking') return { ...my, waiting: 'Придумываем задания под вашу компанию…' };
@@ -225,6 +245,69 @@ export default {
     return { ...my, waiting: 'Смотри на экран' };
   },
 };
+
+/* =================== боты (только в тестовом режиме) =================== */
+
+const BOT_NAMES = ['Бот Сеня', 'Бот Клава', 'Бот Гоша', 'Бот Рита', 'Бот Зина', 'Бот Фёдор'];
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const soon = (min, max) => min + Math.random() * (max - min);
+
+export function addBot(room) {
+  const used = new Set(room.players.map((p) => p.name));
+  const name = BOT_NAMES.find((n) => !used.has(n)) || `Бот ${room.players.length + 1}`;
+  const b = room.addPlayer(name);
+  b.bot = true;
+  b.isHost = false;
+  b.audience = false;
+  return b;
+}
+
+/* Снимаем запланированные ходы ботов — фаза сменилась */
+function clearBots(room) {
+  for (const id of room.botTimers || []) clearTimeout(id);
+  room.botTimers = [];
+}
+
+function laterBot(room, seconds, fn) {
+  room.botTimers = room.botTimers || [];
+  room.botTimers.push(setTimeout(fn, seconds * 1000));
+}
+
+/* Боты пишут шутки */
+function botsWrite(room) {
+  clearBots(room);
+  const s = room.state;
+  for (const b of room.players.filter((p) => p.bot)) {
+    const mine = s.matches.filter((m) => m.authors.includes(b.id));
+    mine.forEach((m, i) => {
+      laterBot(room, soon(2, Math.min(WRITE_SECONDS - 4, 10)) + i * 1.5, () => {
+        if (room.phase !== 'writing' || m.answers[b.id]) return;
+        m.answers[b.id] = pick(BOT_LINES);
+        if (everyoneWrote(room)) { room.clearTimer(); clearBots(room); toVoting(room); }
+        else room.push();
+      });
+    });
+  }
+}
+
+/* Боты голосуют */
+function botsVote(room) {
+  clearBots(room);
+  const s = room.state;
+  const m = s.matches[s.matchIdx];
+  if (!m) return;
+  const idx = s.matchIdx;
+  for (const b of room.players.filter((p) => p.bot)) {
+    const opts = optionsFor(m, b.id);
+    if (!opts.length || (!m.final && m.authors.includes(b.id))) continue;
+    laterBot(room, soon(1.5, Math.min(VOTE_SECONDS - 3, 7)), () => {
+      if (room.phase !== 'voting' || s.matchIdx !== idx || m.votes[b.id]) return;
+      m.votes[b.id] = pick(opts);
+      if (everyoneVoted(room, m)) { room.clearTimer(); clearBots(room); reveal(room); }
+      else room.push();
+    });
+  }
+}
 
 /* =================== внутренняя механика =================== */
 
@@ -302,6 +385,7 @@ function startRound(room, n) {
   room.phase = 'writing';
   room.sound('round');
   room.setTimer(WRITE_SECONDS, () => room.game.onTimeout(room));
+  if (TEST_MODE) botsWrite(room);
   room.push();
 }
 
@@ -311,6 +395,7 @@ function toVoting(room) {
   room.phase = 'voting';
   room.sound('open');
   room.setTimer(VOTE_SECONDS, () => room.game.onTimeout(room));
+  if (TEST_MODE) botsVote(room);
   room.push();
 }
 
@@ -377,6 +462,7 @@ function afterReveal(room) {
     room.phase = 'voting';
     room.sound('open');
     room.setTimer(VOTE_SECONDS, () => room.game.onTimeout(room));
+    if (TEST_MODE) botsVote(room);
     return room.push();
   }
   // раунд кончился
