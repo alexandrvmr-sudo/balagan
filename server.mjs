@@ -96,7 +96,7 @@ const send = (res, code, type, body, cache) => {
 const json = (res, obj) => send(res, 200, 'application/json; charset=utf-8', JSON.stringify(obj), 'no-store');
 
 /* ---------------- WebSocket ---------------- */
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 96 * 1024 });  // рисунки весят больше реплик
 
 wss.on('connection', (ws, req) => {
   ws.meta = { role: null, room: null, playerId: null, origin: originOf(req) };

@@ -22,6 +22,8 @@ export const THEMES = {
 
   sanatoriy: {
     music: 'sanatoriy',
+    ambience: 'hospital',
+    reverb: 0.35,
     host: 'Главврач',
     voice: { gender: 'm', pref: ['Yuri'], rate: 0.86, pitch: 0.6 },
     emblem: svg(`
@@ -75,6 +77,8 @@ export const THEMES = {
 
   gora: {
     music: 'gora',
+    ambience: 'cave',
+    reverb: 0.4,
     host: 'Хозяйка Медной горы',
     voice: { gender: 'f', pref: ['Milena'], rate: 0.88, pitch: 0.8 },
     emblem: svg(`

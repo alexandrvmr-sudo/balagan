@@ -16,6 +16,12 @@ export function audio() {
     bus.voice = ctx.createGain(); bus.voice.gain.value = 1.15;
     bus.amb = ctx.createGain(); bus.amb.gain.value = 0.5;
     bus.music.connect(bus.master); bus.sfx.connect(bus.master); bus.voice.connect(bus.master); bus.amb.connect(bus.master);
+    // реверберация: эффекты и атмосфера звучат как в помещении, глубину задаёт игра
+    bus.rev = ctx.createConvolver();
+    bus.rev.buffer = impulse(ctx, 2.6, 2.4);
+    bus.revSend = ctx.createGain(); bus.revSend.gain.value = 0.15;
+    bus.sfx.connect(bus.revSend); bus.amb.connect(bus.revSend);
+    bus.revSend.connect(bus.rev).connect(bus.master);
     bus.master.connect(comp).connect(ctx.destination);
   }
   return ctx;
@@ -51,3 +57,16 @@ export function noise() {
 }
 
 export const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+function impulse(a, seconds, decay) {
+  const len = Math.floor(a.sampleRate * seconds);
+  const buf = a.createBuffer(2, len, a.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+  }
+  return buf;
+}
+
+/* сколько «помещения» в звуке: 0 — сухо, 1 — пустой больничный коридор */
+export function setReverb(v) { if (bus.revSend) bus.revSend.gain.setTargetAtTime(v, ctx.currentTime, 0.3); }

@@ -3,7 +3,8 @@
 import { connect } from './net.js';
 import { esc, $, byId, plural, fmt, ring, updateRing, store } from './core.js';
 import { avatar, useChars, charSvg, chars } from './chars.js';
-import { unlock, setMusicLevel, getMusicLevel } from './audio.js';
+import { unlock, setMusicLevel, getMusicLevel, setReverb } from './audio.js';
+import { ambience } from './ambience.js';
 import { music } from './music.js';
 import { sfx } from './sfx.js';
 import { voice } from './voice.js';
@@ -156,6 +157,8 @@ function sound() {
   const t = theme(S.gameId);
   const mood = mod?.mood?.(S) || DEFAULT_MOOD[S.phase] || 'lobby';
   music.play(t.music, mood);
+  ambience(soundMode === 2 ? null : (S.gameId ? t.ambience || null : null));
+  setReverb(S.gameId ? t.reverb ?? 0.12 : 0.1);
 }
 
 let flashAt = 0;

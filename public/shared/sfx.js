@@ -66,6 +66,26 @@ const FX = {
   slam: () => { tone(80, 0.4, { type: 'sine', gain: 0.4, slide: 0.5 }); hiss(0.2, { from: 800, to: 200, gain: 0.15, type: 'lowpass' }); },
   type: () => tone(2400 + Math.random() * 600, 0.015, { type: 'square', gain: 0.03 }),
   bell: () => { tone(1568, 1, { type: 'sine', gain: 0.12 }); tone(1568 * 2.7, 0.5, { type: 'sine', gain: 0.04 }); },
+  ecg: () => tone(1046, 0.08, { type: 'sine', gain: 0.1 }),
+  flatline: () => { tone(1046, 2.4, { type: 'sine', gain: 0.12, attack: 0.02 }); },
+  heartbeat: () => { [0, 0.22, 0.9, 1.12, 1.8, 2.02].forEach((t, i) => tone(i % 2 ? 48 : 58, 0.18, { type: 'sine', gain: 0.5, at: t, slide: 0.6 })); },
+  tray: () => { [1890, 2770, 3510, 4820].forEach((f, i) => tone(f, 1.4 - i * 0.2, { type: 'sine', gain: 0.05, attack: 0.001 })); hiss(0.08, { from: 3000, to: 6000, gain: 0.1 }); },
+  gurney: () => { for (let i = 0; i < 6; i++) tone(1300 + Math.random() * 400, 0.12, { type: 'sawtooth', gain: 0.015, at: i * 0.22, slide: 1.2 }); },
+  whisper: () => { for (let i = 0; i < 8; i++) hiss(0.18, { at: i * 0.14, from: 2000 + Math.random() * 2000, to: 3000 + Math.random() * 3000, gain: 0.03, q: 3 }); },
+  stamp: () => { tone(90, 0.25, { type: 'sine', gain: 0.5, slide: 0.5 }); hiss(0.12, { from: 1200, to: 300, gain: 0.18, type: 'lowpass' }); },
+  ding: () => { tone(1320, 1.2, { type: 'sine', gain: 0.12 }); tone(990, 1.4, { type: 'sine', gain: 0.12, at: 0.35 }); },
+  rumble: () => { hiss(2.2, { from: 160, to: 60, gain: 0.2, type: 'lowpass' }); tone(42, 2, { type: 'sine', gain: 0.15, attack: 0.4 }); },
+  cash: () => { tone(2093, 0.08, { type: 'square', gain: 0.05 }); tone(2637, 0.3, { type: 'square', gain: 0.05, at: 0.08 }); hiss(0.25, { at: 0.05, from: 6000, to: 9000, type: 'highpass', gain: 0.06 }); },
+  laugh: () => {
+    // смех зала: много коротких «ха» с разной высотой
+    for (let i = 0; i < 26; i++) {
+      const at = Math.random() * 1.6, f = 160 + Math.random() * 220;
+      for (let k = 0; k < 3; k++) tone(f * (1 + k * 0.02), 0.09, { type: 'sawtooth', gain: 0.012, at: at + k * 0.13, slide: 0.85 });
+    }
+    for (let i = 0; i < 20; i++) hiss(0.08, { at: Math.random() * 1.6, from: 900, to: 1500, gain: 0.025, q: 2 });
+  },
+  boo: () => { for (let i = 0; i < 10; i++) tone(110 + Math.random() * 40, 1.2, { type: 'sawtooth', gain: 0.02, at: Math.random() * 0.3, attack: 0.2, slide: 0.85 }); },
+  whoosh2: () => hiss(0.45, { from: 200, to: 6000, gain: 0.18, q: 0.6 }),
   drip: () => { tone(1400, 0.12, { type: 'sine', gain: 0.12, slide: 0.45 }); tone(900, 0.1, { type: 'sine', gain: 0.06, at: 0.09, slide: 0.6 }); },
   buzz: () => { tone(120, 0.5, { type: 'sawtooth', gain: 0.05 }); tone(240, 0.5, { type: 'square', gain: 0.02 }); },
 };
