@@ -35,6 +35,8 @@ export default {
   tagline: 'Двоим — одна затравка, залу — выбрать, кто смешнее',
   minPlayers: 3,
   maxPlayers: 10,
+  tags: ['Шутки'],
+  ratings: ['family', 'adult', 'hard'],
   minutes: 15,
   usesAI: true,
   intro: 'Шутка на двоих! Двое отвечают на одну затравку, остальные выбирают, кто смешнее.',

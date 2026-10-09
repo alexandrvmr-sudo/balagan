@@ -34,6 +34,8 @@ export default {
   tagline: 'Отвечай HR-нейросети чужими словами — и получи должность',
   minPlayers: 3,
   maxPlayers: 10,
+  tags: ['Слова', 'Шутки'],
+  ratings: ['family', 'adult'],
   minutes: 20,
   intro: 'Собеседование. Отвечайте на вопросы отдела кадров. Но только чужими словами.',
   rules: [

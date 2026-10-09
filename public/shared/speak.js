@@ -1,0 +1,26 @@
+/* Текст для синтезатора: без знаков, которые он зачитывает вслух. Копия speakable() из src/tts.mjs */
+export function speakable(text) {
+  return String(text ?? '')
+    .replace(/_{2,}/g, '… ')
+    .replace(/\p{Extended_Pictographic}|️/gu, ' ')
+    .replace(/[«»"„“”'`]/g, '')
+    .replace(/\s[—–-]\s/g, ', ')
+    .replace(/[—–]/g, ', ')
+    .replace(/×/g, ' на ')
+    .replace(/(\d)\s?°/g, '$1 градусов')
+    .replace(/№\s*/g, 'номер ')
+    .replace(/(\d)\s?%/g, '$1 процентов')
+    .replace(/(\d)\s?₽/g, '$1 рублей')
+    .replace(/\+/g, ' плюс ')
+    .replace(/−/g, ' минус ')
+    .replace(/=/g, ' равно ')
+    .replace(/&/g, ' и ')
+    .replace(/(\d)[    ](?=\d{3}\b)/g, '$1')
+    .replace(/[\/\\|_*#@~^<>\[\]{}]/g, ' ')
+    .replace(/\s+([,.!?…:;])/g, '$1')
+    .replace(/([,.!?…:;])(?=[^\s\d.])/g, '$1 ')
+    .replace(/,\s*,+/g, ',')
+    .replace(/^[\s,.]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}

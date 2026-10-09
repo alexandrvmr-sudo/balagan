@@ -1,57 +1,94 @@
-/* Голос ведущего: синтез речи браузера. На macOS есть русские голоса (Milena, Yuri),
-   в Chrome — ещё «Google русский». Нет русского голоса — молчим, игра от этого не ломается. */
+/* Голос ведущего. Основной путь — готовый mp3 с сервера: играет через Web Audio,
+   приглушает музыку и отдаёт громкость для анимации губ. Запасной — синтез речи браузера. */
 
-import { duck } from './audio.js';
+import { audio, bus, duck, running } from './audio.js';
+import { speakable } from './speak.js';
 
-let voices = [];
 let enabled = true;
-let speaking = 0;
+const queue = [];
+let busy = false;
+let analyser = null;
+let buf = null;
+let current = null;
+let bvoices = [];
 
-function load() {
-  try { voices = speechSynthesis.getVoices().filter((v) => /^ru/i.test(v.lang)); } catch { voices = []; }
-}
-if ('speechSynthesis' in window) {
-  load();
-  speechSynthesis.onvoiceschanged = load;
-}
+function load() { try { bvoices = speechSynthesis.getVoices().filter((v) => /^ru/i.test(v.lang)); } catch { bvoices = []; } }
+if ('speechSynthesis' in window) { load(); speechSynthesis.onvoiceschanged = load; }
 
-const MALE = /yuri|юрий|pavel|dmitr|maxim|алексей|artem|male/i;
-
-function choose(pref = [], gender) {
-  for (const p of pref) {
-    const v = voices.find((x) => x.name.toLowerCase().includes(p.toLowerCase()));
-    if (v) return v;
-  }
-  if (gender === 'm') return voices.find((v) => MALE.test(v.name)) || voices[0];
-  if (gender === 'f') return voices.find((v) => !MALE.test(v.name)) || voices[0];
-  return voices[0];
+function ensureAnalyser() {
+  const a = audio();
+  if (!a || analyser) return;
+  analyser = a.createAnalyser();
+  analyser.fftSize = 512;
+  buf = new Uint8Array(analyser.fftSize);
+  analyser.connect(bus.voice);
 }
 
-/* Делим на фразы: длинные реплики Chrome иногда обрывает */
-const chunks = (text) => String(text).replace(/___/g, 'пропуск').split(/(?<=[.!?…])\s+/).filter(Boolean);
+async function next() {
+  if (busy) return;
+  const item = queue.shift();
+  if (!item) return;
+  busy = true;
+  item.onStart?.();
+  try {
+    if (!enabled) await new Promise((r) => setTimeout(r, 1200 + item.text.length * 45));
+    else if (item.audio && running()) await playFile(item);
+    else await speakBrowser(item);
+  } catch { /* проиграть не вышло — просто идём дальше */ }
+  item.onEnd?.();
+  busy = false;
+  next();
+}
+
+function playFile(item) {
+  return new Promise((resolve) => {
+    ensureAnalyser();
+    const el = new Audio(item.audio);
+    el.crossOrigin = 'anonymous';
+    const src = audio().createMediaElementSource(el);
+    src.connect(analyser);
+    current = el;
+    duck(true);
+    const done = () => { duck(false); current = null; try { src.disconnect(); } catch {} resolve(); };
+    el.onended = done;
+    el.onerror = done;
+    el.play().catch(done);
+  });
+}
+
+function speakBrowser(item) {
+  return new Promise((resolve) => {
+    if (!('speechSynthesis' in window) || !bvoices.length) return setTimeout(resolve, 1000 + item.text.length * 45);
+    const u = new SpeechSynthesisUtterance(speakable(item.text));
+    const v = bvoices[0];
+    u.voice = v; u.lang = v.lang; u.rate = item.rate || 1; u.pitch = item.pitch || 1;
+    duck(true);
+    u.onend = u.onerror = () => { duck(false); resolve(); };
+    speechSynthesis.speak(u);
+  });
+}
 
 export const voice = {
-  get available() { return voices.length > 0; },
   get enabled() { return enabled; },
   set enabled(v) { enabled = v; if (!v) this.stop(); },
+  get speaking() { return busy; },
 
-  say(text, { pref = [], gender, rate = 1, pitch = 1, interrupt = false } = {}) {
-    if (!enabled || !text || !('speechSynthesis' in window)) return;
-    if (!voices.length) load();
-    const v = choose(pref, gender);
-    if (!v) return;
-    if (interrupt) this.stop();
-    for (const part of chunks(text)) {
-      const u = new SpeechSynthesisUtterance(part);
-      u.voice = v; u.lang = v.lang; u.rate = rate; u.pitch = pitch;
-      u.onstart = () => { if (speaking++ === 0) duck(true); };
-      u.onend = u.onerror = () => { speaking = Math.max(0, speaking - 1); if (speaking === 0) duck(false); };
-      speechSynthesis.speak(u);
-    }
+  /* { text, audio, rate, pitch, onStart, onEnd } */
+  say(item) { queue.push(item); next(); },
+
+  /* громкость речи 0..1 — для губ ведущего */
+  level() {
+    if (!analyser || !current) return 0;
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (const x of buf) { const d = (x - 128) / 128; sum += d * d; }
+    return Math.min(1, Math.sqrt(sum / buf.length) * 4);
   },
 
   stop() {
+    queue.length = 0;
+    try { current?.pause(); } catch {}
     try { speechSynthesis.cancel(); } catch {}
-    speaking = 0; duck(false);
+    duck(false);
   },
 };

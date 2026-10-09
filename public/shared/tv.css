@@ -121,3 +121,65 @@ html, body { height: 100%; overflow: hidden; }
   backdrop-filter: blur(6px); transition: transform .45s var(--spring), opacity .3s; pointer-events: none; }
 .caption b { display: block; font-size: 1.3vmin; letter-spacing: .14em; text-transform: uppercase; color: var(--a2); margin-bottom: .3vmin; }
 .caption.on { transform: translate(-50%, 0); opacity: 1; }
+
+/* ---------- меню v2 ---------- */
+body[data-game="menu"] .backdrop::before {
+  background:
+    radial-gradient(40vmax 40vmax at 15% 10%, rgba(255,46,99,.28), transparent 60%),
+    radial-gradient(40vmax 40vmax at 90% 30%, rgba(90,125,255,.25), transparent 60%),
+    radial-gradient(50vmax 40vmax at 50% 110%, rgba(255,210,63,.18), transparent 60%);
+}
+body[data-game="menu"] .backdrop .art { position: absolute; inset: 0; opacity: .07;
+  background-image: radial-gradient(circle at 25% 25%, #fff 2px, transparent 3px), radial-gradient(circle at 75% 75%, #fff 2px, transparent 3px);
+  background-size: 6vmin 6vmin; animation: drift 40s linear infinite; }
+.menu2 { display: grid; grid-template-columns: 40% 1fr; grid-template-rows: 1fr auto; gap: 2.4vmin 4vmin; height: 100%; }
+.mleft { display: flex; flex-direction: column; gap: 2vmin; min-height: 0; }
+.mleft .logo { font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 8.6vmin; line-height: .95; text-shadow: .5vmin .5vmin 0 rgba(0,0,0,.35); }
+.mlist { display: flex; flex-direction: column; gap: .8vmin; }
+.mitem { display: flex; align-items: center; gap: 1.6vmin; padding: 1vmin 1.6vmin; border-radius: 1.4vmin; font-family: 'Unbounded', sans-serif; font-weight: 700; font-size: 2.5vmin;
+  color: var(--dim); border: .3vmin solid transparent; transition: transform .35s var(--spring), color .2s, background .2s, border-color .2s; }
+.mitem .mi { width: 5vmin; height: 5vmin; flex: none; } .mitem .mi svg { width: 100%; height: 100%; }
+.mitem.on { color: #fff; background: rgba(255,255,255,.08); border-color: var(--a2); transform: translateX(1.6vmin) scale(1.04); }
+.mfam { margin-top: auto; font-size: 1.7vmin; color: var(--dim); }
+.mfam .on b { color: var(--a3); }
+.mright { position: relative; display: grid; place-items: center; min-height: 0; }
+.mprev { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.8vmin; text-align: center;
+  padding: 3vmin; border-radius: 3vmin; background: rgba(255,255,255,.05); border: .3vmin solid rgba(255,255,255,.12); box-shadow: 1vmin 1vmin 0 rgba(0,0,0,.35); }
+.memb { width: 30vmin; height: 30vmin; animation: bob 3s ease-in-out infinite; filter: drop-shadow(0 1.4vmin 0 rgba(0,0,0,.35)); }
+.memb svg { width: 100%; height: 100%; }
+.mprev h2 { font-family: 'Unbounded', sans-serif; font-size: 6vmin; }
+.mprev p { margin: 0; font-size: 2.4vmin; color: var(--dim); max-width: 80%; line-height: 1.35; }
+.mtags { display: flex; flex-wrap: wrap; justify-content: center; gap: 1vmin; }
+.mtag { display: inline-flex; align-items: center; gap: .8vmin; padding: .8vmin 1.6vmin; border-radius: 99vmin; background: rgba(255,255,255,.08); border: .2vmin solid rgba(255,255,255,.14); font-weight: 800; font-size: 1.7vmin; }
+.mtag i { font-style: normal; }
+.mtag.hot { border-color: var(--a1); color: #ffb3c4; }
+.mtag.off { opacity: .55; }
+.menu2 .joinbar { grid-column: 1 / -1; }
+
+/* ---------- лобби v2 ---------- */
+.lobby2 { display: grid; grid-template-rows: auto 1fr auto auto; gap: 2.4vmin; height: 100%; }
+.lhead { display: flex; align-items: center; gap: 2.4vmin; }
+.lhead .em { width: 12vmin; height: 12vmin; animation: bob 3s ease-in-out infinite; }
+.lhead .em svg { width: 100%; height: 100%; }
+.lhead h1 { font-size: 6.4vmin; }
+.lhead .tagline { font-size: 2.2vmin; color: var(--dim); margin-top: .6vmin; }
+.lrate { margin-left: auto; }
+.rbadge { display: inline-block; padding: 1vmin 2.2vmin; border-radius: 99vmin; font-weight: 800; font-size: 2.2vmin; background: rgba(255,255,255,.1); border: .3vmin solid rgba(255,255,255,.2); animation: pop .4s var(--spring); }
+.rbadge.r-adult { background: rgba(255,46,99,.22); border-color: #ff2e63; }
+.rbadge.r-hard { background: rgba(0,0,0,.5); border-color: #ff2e63; color: #ff2e63; }
+.lmid { display: grid; grid-template-columns: 1fr auto; gap: 3vmin; align-items: center; min-height: 0; }
+.lineup { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 2.4vmin 3vmin; padding: 2vmin; }
+.lu { display: flex; flex-direction: column; align-items: center; gap: .6vmin; animation: dropIn .6s var(--spring) both; }
+.lu .cav, .lu .avatar { font-size: 6.2vmin; }
+.lu b { font-size: 2.1vmin; } .lu small { font-size: 1.4vmin; color: var(--dim); }
+.lu.host b::after { content: ' ★'; color: var(--a2); }
+.lu.empty { opacity: .4; }
+.lu .ghostslot { display: grid; place-items: center; width: 14vmin; height: 15vmin; border: .4vmin dashed rgba(255,255,255,.35); border-radius: 50% 50% 40% 40%; font-family: 'Unbounded', sans-serif; font-size: 5vmin; }
+@keyframes dropIn { from { transform: translateY(-30vh) rotate(-10deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.lobby2 .side { display: flex; flex-direction: column; align-items: center; gap: 1.4vmin; }
+.lobby2 .code { font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 7vmin; letter-spacing: .08em; background: linear-gradient(135deg, var(--a2), var(--a1)); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1; }
+.lobby2 .qr { width: 20vmin; height: 20vmin; background: #fff; padding: 1.2vmin; border-radius: 1.6vmin; box-shadow: var(--shadow); }
+.lrules { margin: 0; padding: 0; list-style: none; counter-reset: r; display: flex; gap: 1.4vmin; flex-wrap: wrap; justify-content: center; }
+.lrules li { counter-increment: r; display: flex; align-items: center; gap: 1vmin; max-width: 34vmin; padding: 1vmin 1.6vmin; border-radius: 1.4vmin; background: rgba(255,255,255,.06); font-size: 1.7vmin; line-height: 1.3; }
+.lrules li::before { content: counter(r); flex: none; display: grid; place-items: center; width: 3.4vmin; height: 3.4vmin; border-radius: 50%; background: var(--a1); color: #fff; font-family: var(--display); font-size: 1.6vmin; }
+.lobby2 .need { text-align: center; font-size: 2vmin; color: var(--dim); }

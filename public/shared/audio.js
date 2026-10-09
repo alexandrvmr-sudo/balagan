@@ -1,7 +1,7 @@
 /* Общий аудиоконтекст и шины: музыка, эффекты, голос приглушает музыку */
 
 let ctx = null;
-export const bus = { master: null, music: null, sfx: null };
+export const bus = { master: null, music: null, sfx: null, voice: null, amb: null };
 let musicLevel = 0.55;
 let ducked = false;
 
@@ -13,7 +13,9 @@ export function audio() {
     bus.master = ctx.createGain(); bus.master.gain.value = 0.9;
     bus.music = ctx.createGain(); bus.music.gain.value = musicLevel;
     bus.sfx = ctx.createGain(); bus.sfx.gain.value = 0.8;
-    bus.music.connect(bus.master); bus.sfx.connect(bus.master);
+    bus.voice = ctx.createGain(); bus.voice.gain.value = 1.15;
+    bus.amb = ctx.createGain(); bus.amb.gain.value = 0.5;
+    bus.music.connect(bus.master); bus.sfx.connect(bus.master); bus.voice.connect(bus.master); bus.amb.connect(bus.master);
     bus.master.connect(comp).connect(ctx.destination);
   }
   return ctx;

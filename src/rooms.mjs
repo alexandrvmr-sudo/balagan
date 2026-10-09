@@ -2,6 +2,7 @@
    Правила игр живут в src/games — комната о них ничего не знает. */
 
 import { TEST_MODE } from './lib.mjs';
+import { synth } from './tts.mjs';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // без I и O — путают с 1 и 0
 const PALETTE = [
@@ -20,7 +21,14 @@ const rid = (n = 8) => Math.random().toString(36).slice(2, 2 + n);
 export const metaOf = (g) => ({
   id: g.id, title: g.title, tagline: g.tagline, rules: g.rules,
   min: g.minPlayers, max: g.maxPlayers, minutes: g.minutes, ai: !!g.usesAI,
+  tags: g.tags || [], ratings: g.ratings || ['family'], chars: charsOf(g),
 });
+
+export const RATINGS = { family: 'Обычный', adult: '18+', hard: 'Жесть' };
+
+/* персонажи по умолчанию — хохотунчики из public/shared/chars-blob.js */
+export const DEFAULT_CHARS = ['pyshka', 'zhuzha', 'bubu', 'sonya', 'vreda', 'umnik', 'kotleta', 'shishka', 'korol', 'plaksa', 'gromila', 'chudik'];
+const charsOf = (g) => (g?.chars?.length ? g.chars : DEFAULT_CHARS);
 
 export class Room {
   constructor() {
@@ -40,6 +48,26 @@ export class Room {
     this.botTimers = [];
     this.botKey = '';
     this.catalog = [];           // список игр для меню, задаёт сервер
+    this.family = false;         // семейный фильтр: только обычный контент
+    this.rating = 'family';      // уровень контента в текущей игре
+  }
+
+  /* уровень контента, который игра реально может дать */
+  get level() {
+    const ok = this.game?.ratings || ['family'];
+    return this.family || !ok.includes(this.rating) ? 'family' : this.rating;
+  }
+
+  /* персонажи: свободные раздаём тем, кто не выбрал */
+  dealChars() {
+    const list = charsOf(this.game);
+    const taken = new Set(this.players.map((p) => p.char).filter(Boolean));
+    for (const p of this.players) {
+      if (p.char && list.includes(p.char)) continue;
+      const free = list.find((c) => !taken.has(c)) || list[this.players.indexOf(p) % list.length];
+      p.char = free;
+      taken.add(free);
+    }
   }
 
   /* --- игра --- */
@@ -51,8 +79,8 @@ export class Room {
     this.state = {};
     this.flash = null;
     this.hover = null;
-    for (const p of this.players) { p.score = 0; p.audience = false; }
-    if (game) { this.phase = 'lobby'; game.init(this); }
+    for (const p of this.players) { p.score = 0; p.audience = false; p.char = null; }
+    if (game) { this.phase = 'lobby'; game.init(this); this.dealChars(); }
     else this.phase = 'menu';
   }
 
@@ -74,6 +102,7 @@ export class Room {
       isHost: !bot && !this.players.some((x) => x.isHost),
       connected: true,
       audience: false,
+      char: null,
       bot,
       socket: null,
       goneAt: null,
@@ -127,8 +156,17 @@ export class Room {
 
   sound(name) { this.toScreens({ t: 'sound', name }); }
 
-  /* Ведущий говорит вслух — экран озвучит синтезом речи */
-  say(text, opts = {}) { if (text) this.toScreens({ t: 'say', text, ...opts }); }
+  /* Ведущий говорит вслух. Фразы синтезируются на сервере и уходят на экран строго по порядку;
+     если синтез не удался — экран прочитает текст сам. */
+  say(text, opts = {}) {
+    if (!text) return;
+    const who = opts.who || this.game?.voice || this.game?.id || 'menu';
+    const job = synth(text, who);
+    this.sayChain = (this.sayChain || Promise.resolve()).then(async () => {
+      const audio = await Promise.race([job, new Promise((r) => setTimeout(() => r(null), 4000))]);
+      this.toScreens({ t: 'say', text, ...opts, who, audio });
+    });
+  }
 
   /* Каждому — свой вид. Экран получает viewTV, телефоны — viewPlayer. */
   push() {
@@ -145,9 +183,11 @@ export class Room {
       test: TEST_MODE,
       games: this.game ? null : this.catalog,
       meta: this.game ? metaOf(this.game) : null,
+      family: this.family,
+      rating: this.level,
       players: this.players.map((p) => ({
         id: p.id, name: p.name, color: p.color, emoji: p.emoji, score: p.score,
-        isHost: p.isHost, connected: p.connected, audience: p.audience, bot: p.bot,
+        isHost: p.isHost, connected: p.connected, audience: p.audience, bot: p.bot, char: p.char,
       })),
     };
     const g = this.game;
@@ -157,7 +197,7 @@ export class Room {
       if (!p.socket) continue;
       this.send(p.socket, {
         t: 'state', view: 'player', ...base,
-        you: { id: p.id, name: p.name, color: p.color, emoji: p.emoji, score: p.score, isHost: p.isHost, audience: p.audience },
+        you: { id: p.id, name: p.name, color: p.color, emoji: p.emoji, score: p.score, isHost: p.isHost, audience: p.audience, char: p.char },
         ...(g?.viewPlayer?.(this, p) || {}),
       });
     }

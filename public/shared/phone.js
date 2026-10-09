@@ -1,7 +1,8 @@
 /* Оболочка телефона: вход, меню игр, лобби, загрузка игровых модулей */
 
 import { connect } from './net.js';
-import { esc, $, avatar, byId, plural, fmt, store, buzz } from './core.js';
+import { esc, $, byId, plural, fmt, store, buzz } from './core.js';
+import { avatar, useChars, chars } from './chars.js';
 import { THEMES, theme } from './themes.js';
 
 const main = $('#main');
@@ -84,6 +85,7 @@ function join(code, name) {
 async function render() {
   const id = S.gameId;
   setTheme(id);
+  await useChars(id);
   gameName.textContent = S.gameTitle || '';
   meBox.innerHTML = S.you
     ? `${avatar(S.you)}<span style="color:${S.you.color}">${esc(S.you.name)}</span>${S.you.isHost ? '<span style="color:var(--a2)">★</span>' : ''}${id ? `<span class="sc">${fmt(S.you.score)}</span>` : ''}`
@@ -196,8 +198,9 @@ function drawMenu() {
         <div><b>${esc(g.title)}</b><span>${esc(g.tagline)}</span></div>
       </button>`).join('')}</div>
     <div id="seats">${seats(S.players)}</div>`;
-  foot.innerHTML = botBar();
+  foot.innerHTML = `${host ? `<button class="btn ghost small" id="fam">👨‍👩‍👧 Семейный фильтр: ${S.family ? 'включён' : 'выключен'}</button>` : ''}${botBar()}`;
   bindBots();
+  $('#fam')?.addEventListener('click', () => act({ a: 'family' }));
   if (host) for (const b of main.querySelectorAll('.gbtn')) {
     b.onclick = () => { detail = b.dataset.g; act({ a: 'hover', game: detail }); key = ''; render(); };
   }
@@ -206,18 +209,28 @@ function drawMenu() {
 function liveMenu() {
   const s = $('#seats');
   if (s) s.innerHTML = seats(S.players);
-  if (!detail) { foot.innerHTML = botBar(); bindBots(); }
+  if (!detail) {
+    foot.innerHTML = `${S.you?.isHost ? `<button class="btn ghost small" id="fam">👨‍👩‍👧 Семейный фильтр: ${S.family ? 'включён' : 'выключен'}</button>` : ''}${botBar()}`;
+    bindBots();
+    $('#fam')?.addEventListener('click', () => act({ a: 'family' }));
+  }
 }
 
 /* ---------- лобби ---------- */
+const RATING = {
+  family: ['😇 Обычный', 'для всех'],
+  adult: ['🔞 18+', 'пошло, с намёками'],
+  hard: ['☠️ Жесть', 'чёрный юмор и край'],
+};
+
 function drawLobby() {
   const m = S.meta;
-  const host = S.you?.isHost;
   main.innerHTML = `
     <div class="tagline">${esc(theme(m.id).host)}</div>
     <h1>${esc(m.title)}</h1>
     <div class="sub" id="need"></div>
-    <div id="seats">${seats(S.players)}</div>
+    <div id="pick"></div>
+    <div id="rate"></div>
     <div id="extra"></div>`;
   mod = null;
   load(m.id).then((gm) => { if (gm?.lobby && S.phase === 'lobby' && S.gameId === m.id) gm.lobby(S, { ...ui, main: $('#extra') }); });
@@ -231,8 +244,39 @@ function liveLobby() {
   const need = Math.max(0, m.min - n);
   const el = $('#need');
   if (el) el.textContent = need ? `Нужно ещё ${need} ${plural(need, 'игрок', 'игрока', 'игроков')}.` : host ? 'Все в сборе — можно начинать.' : 'Ждём, пока ★ начнёт.';
-  const s = $('#seats');
-  if (s) s.innerHTML = seats(S.players);
+
+  // выбор персонажа
+  const pick = $('#pick');
+  const list = Object.entries(chars());
+  const ids = (m.chars?.length ? m.chars : list.map(([id]) => id));
+  if (pick && !S.you?.audience) {
+    const owner = (cid) => S.players.find((p) => p.char === cid);
+    const sig = ids.map((cid) => cid + (owner(cid)?.id || '')).join();
+    if (pick.dataset.sig !== sig) {
+      pick.dataset.sig = sig;
+      pick.innerHTML = `<div class="tagline" style="margin-bottom:8px">выбери персонажа</div><div class="chargrid">${ids.map((cid) => {
+        const c = chars()[cid];
+        if (!c) return '';
+        const o = owner(cid);
+        const mine = o?.id === S.you?.id;
+        return `<button class="chr ${mine ? 'mine' : o ? 'taken' : ''}" data-c="${cid}" ${o && !mine ? 'disabled' : ''} style="--pc:${c.color}">
+          <span class="cav">${c.draw({ mood: mine ? 'wow' : 'happy' })}</span><b>${esc(c.name)}</b>${o && !mine ? `<small>${esc(o.name)}</small>` : ''}</button>`;
+      }).join('')}</div>`;
+      for (const b of pick.querySelectorAll('.chr:not([disabled])')) b.onclick = () => { buzz(20); act({ a: 'char', c: b.dataset.c }); };
+    }
+  }
+
+  // уровень контента — только у хоста и только если игра умеет
+  const rate = $('#rate');
+  if (rate) {
+    const can = (m.ratings || []).length > 1;
+    if (host && can && !S.family) {
+      rate.innerHTML = `<div class="tagline" style="margin-bottom:8px">уровень контента</div><div class="seg">${m.ratings.map((r) => `<button class="${S.rating === r ? 'on' : ''}" data-r="${r}"><b>${RATING[r][0]}</b><small>${RATING[r][1]}</small></button>`).join('')}</div>`;
+      for (const b of rate.querySelectorAll('[data-r]')) b.onclick = () => act({ a: 'rating', r: b.dataset.r });
+    } else if (can) rate.innerHTML = `<div class="sub">Уровень: <b>${RATING[S.rating]?.[0] || ''}</b>${S.family ? ' · семейный фильтр' : ''}</div>`;
+    else rate.innerHTML = '';
+  }
+
   if (host) {
     foot.innerHTML = `${botBar()}<button class="btn" id="start" ${need ? 'disabled' : ''}>Начать</button><button class="btn ghost small" id="other">← другая игра</button>`;
     bindBots();

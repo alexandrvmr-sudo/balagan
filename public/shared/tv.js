@@ -1,7 +1,8 @@
 /* Оболочка экрана: связь, тема игры, музыка, голос, меню, лобби, загрузка игровых модулей */
 
 import { connect } from './net.js';
-import { esc, $, avatar, byId, plural, fmt, ring, updateRing, store } from './core.js';
+import { esc, $, byId, plural, fmt, ring, updateRing, store } from './core.js';
+import { avatar, useChars, charSvg, chars } from './chars.js';
 import { unlock, setMusicLevel, getMusicLevel } from './audio.js';
 import { music } from './music.js';
 import { sfx } from './sfx.js';
@@ -29,11 +30,11 @@ const mods = {};
 
 /* то, что получают игровые модули */
 const ui = {
-  app, esc, avatar, plural, fmt, sfx, fx, voice,
+  app, esc, avatar, plural, fmt, sfx, fx, voice, mouth: () => voice.level(),
   p: (id) => byId(S, id),
   theme: () => theme(S?.gameId),
   tag: (t) => { tagEl.textContent = t || ''; },
-  podium, board, qr, joinBox,
+  podium, board, qr, joinBox, charSvg, chars,
   get S() { return S; },
 };
 
@@ -73,7 +74,10 @@ connect({
     if (m.t === 'welcome') { joinUrl = m.joinUrl; store.set('balagan.tv.code', m.code, sessionStorage); roomEl.innerHTML = `${esc(joinUrl.replace(/^https?:\/\//, '').replace(/\/j\/.*/, ''))} <b>${m.code}</b>`; return; }
     if (m.t === 'error') { store.del('balagan.tv.code', sessionStorage); if (!askedCode) location.reload(); return; }
     if (m.t === 'sound') return sfx(m.name);
-    if (m.t === 'say') { caption(m.text, theme(m.who || S?.gameId).host); return voice.say(m.text, theme(m.who || S?.gameId).voice); }
+    if (m.t === 'say') {
+      const t = theme(m.who || S?.gameId);
+      return voice.say({ text: m.text, audio: m.audio, rate: t.voice?.rate, pitch: t.voice?.pitch, onStart: () => { caption(m.text, t.host); mod?.speak?.(true, m); }, onEnd: () => mod?.speak?.(false, m) });
+    }
     if (m.t === 'state') { prev = S; S = m; render(); }
   },
 });
@@ -95,6 +99,7 @@ let lastSec = null;
 async function render() {
   const id = S.gameId;
   setTheme(id);
+  await useChars(id);
   gnameEl.textContent = S.gameTitle ? `· ${S.gameTitle}` : '';
 
   if (id && S.phase !== 'lobby') {
@@ -217,66 +222,98 @@ function podium(list) {
 }
 
 /* ---------- меню ---------- */
+const TAG_ICON = { 'Шутки': '😂', 'Викторина': '🧠', 'Команды': '⚔️', 'Везение': '🎲', 'Рисование': '🎨', 'Слова': '🧲', 'Ужасы': '💀', 'Стендап': '🎤' };
+let attract = 0, attractTimer = 0;
+
+function previewHTML(g) {
+  if (!g) return '';
+  const tags = (g.tags || []).map((t) => `<span class="mtag"><i>${TAG_ICON[t] || '★'}</i>${esc(t)}</span>`).join('');
+  const adult = g.ratings?.length > 1 ? `<span class="mtag ${S.family ? 'off' : 'hot'}"><i>🔞</i>${S.family ? 'семейный фильтр' : 'есть 18+'}</span>` : '';
+  return `<div class="mprev pop" data-g="${g.id}">
+    <div class="memb">${THEMES[g.id]?.emblem || ''}</div>
+    <h2>${esc(g.title)}</h2>
+    <p>${esc(g.tagline)}</p>
+    <div class="mtags">${tags}${adult}<span class="mtag"><i>📱</i>${g.min}–${g.max} игроков</span><span class="mtag"><i>⏱</i>~${g.minutes} мин</span></div>
+  </div>`;
+}
+
 function drawMenu() {
   ui.tag('');
+  const games = S.games || [];
   const title = 'БАЛАГАН'.split('').map((c) => `<i>${c}</i>`).join('');
   app.innerHTML = `
-    <div class="screen menu">
-      <div class="head rise">
-        <div class="logo">${title}</div>
-        <div class="sub">${S.players.some((p) => p.isHost) ? 'Игрок со звёздочкой ★ выбирает игру на телефоне' : 'Заходите с телефона — первый станет ведущим и выберет игру'}</div>
+    <div class="screen menu2">
+      <div class="mleft">
+        <div class="logo rise">${title}</div>
+        <div class="mlist stagger">${games.map((g) => `<div class="mitem" data-g="${g.id}"><span class="mi">${THEMES[g.id]?.emblem || ''}</span>${esc(g.title)}</div>`).join('')}</div>
+        <div class="mfam" id="fam"></div>
       </div>
-      <div class="games stagger">${(S.games || []).map((g) => `
-        <div class="gcard ${S.hover === g.id ? 'on' : ''}" data-g="${g.id}">
-          <div class="em">${THEMES[g.id]?.emblem || ''}</div>
-          <div>
-            <h3>${esc(g.title)}</h3>
-            <p>${esc(g.tagline)}</p>
-            <div class="meta"><span>${g.min}–${g.max} игроков</span><span>~${g.minutes} мин</span>${g.ai ? '<span>ИИ</span>' : ''}</div>
-          </div>
-        </div>`).join('')}</div>
+      <div class="mright" id="prev"></div>
       <div class="joinbar rise">
         <div class="url">заходите на<b>${esc(joinUrl.replace(/^https?:\/\//, '').replace(/\/j\/.*/, '/join'))}</b></div>
-        <div class="people" id="people">${people(S.players) || '<span class="hint">пока никого…</span>'}</div>
+        <div class="people" id="people">${people(S.players) || '<span class="hint">пока никого… первый станет ведущим ★</span>'}</div>
         <div class="code">${S.code}</div>
         <div class="qr" id="qr"></div>
       </div>
     </div>`;
   qr($('#qr'));
+  clearInterval(attractTimer);
+  attractTimer = setInterval(() => { if (!S.gameId && !S.hover) { attract = (attract + 1) % Math.max(1, games.length); liveMenu(true); } }, 5000);
+  liveMenu(true);
 }
 
-function liveMenu() {
+let shown = null;
+function liveMenu(force = false) {
+  const games = S.games || [];
   const box = $('#people');
   if (box) {
     const sig = S.players.map((p) => p.id + p.connected + p.isHost).join();
-    if (box.dataset.sig !== sig) { box.dataset.sig = sig; box.innerHTML = people(S.players) || '<span class="hint">пока никого…</span>'; }
+    if (box.dataset.sig !== sig) { box.dataset.sig = sig; box.innerHTML = people(S.players) || '<span class="hint">пока никого… первый станет ведущим ★</span>'; }
   }
-  for (const c of app.querySelectorAll('.gcard')) {
-    const on = c.dataset.g === S.hover;
-    if (on && !c.classList.contains('on')) sfx('clack');
-    c.classList.toggle('on', on);
+  const focus = S.hover || games[attract % Math.max(1, games.length)]?.id;
+  for (const el of app.querySelectorAll('.mitem')) el.classList.toggle('on', el.dataset.g === focus);
+  if (focus !== shown || force) {
+    if (S.hover && focus !== shown) sfx('clack');
+    shown = focus;
+    const prev = $('#prev');
+    if (prev) prev.innerHTML = previewHTML(games.find((g) => g.id === focus));
   }
+  const fam = $('#fam');
+  if (fam) fam.innerHTML = `<span class="${S.family ? 'on' : ''}">👨‍👩‍👧 Семейный фильтр: <b>${S.family ? 'включён' : 'выключен'}</b></span>`;
 }
 
 /* ---------- лобби игры ---------- */
+const RATING = { family: 'Обычный', adult: '18+', hard: 'Жесть' };
+
+function lineup() {
+  const m = S.meta;
+  const list = S.players.filter((p) => p.connected || p.bot);
+  const empty = Math.max(0, m.min - list.length);
+  return list.map((p, i) => `<div class="lu ${p.isHost ? 'host' : ''}" data-p="${p.id}" style="animation-delay:${i * 0.06}s">
+      ${avatar(p, 'bob')}<b style="color:${p.color}">${esc(p.name)}</b><small>${esc(chars()[p.char]?.name || '')}</small></div>`).join('')
+    + Array.from({ length: empty }, () => '<div class="lu empty"><span class="ghostslot">?</span><b>ждём</b></div>').join('');
+}
+
 function drawLobby() {
   const m = S.meta;
   ui.tag('');
   app.innerHTML = `
-    <div class="screen lobby">
-      <div class="rise">
+    <div class="screen lobby2">
+      <div class="lhead rise">
         <div class="em">${THEMES[m.id]?.emblem || ''}</div>
-        <h1>${esc(m.title)}</h1>
-        <div class="tagline">${esc(m.tagline)}</div>
-        <ol class="stagger">${(m.rules || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ol>
+        <div><h1>${esc(m.title)}</h1><div class="tagline">${esc(m.tagline)}</div></div>
+        <div class="lrate" id="rate"></div>
       </div>
-      <div class="side rise">
-        <div class="hint">${esc(theme(m.id).host)} ждёт гостей</div>
-        <div class="code">${S.code}</div>
-        <div class="qr" id="qr"></div>
-        <div class="people" id="people">${people(S.players)}</div>
-        <div class="need" id="need"></div>
+      <div class="lmid">
+        <div class="lineup" id="lineup">${lineup()}</div>
+        <div class="side">
+          <div class="code">${S.code}</div>
+          <div class="qr" id="qr"></div>
+          <div class="hint">${esc(theme(m.id).host)} ждёт гостей</div>
+        </div>
       </div>
+      <ol class="lrules stagger">${(m.rules || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ol>
+      <div class="need" id="need"></div>
     </div>`;
   qr($('#qr'));
   liveLobby();
@@ -284,10 +321,15 @@ function drawLobby() {
 
 function liveLobby() {
   const m = S.meta;
-  const box = $('#people');
+  const box = $('#lineup');
   if (box) {
-    const sig = S.players.map((p) => p.id + p.connected + p.isHost).join();
-    if (box.dataset.sig !== sig) { box.dataset.sig = sig; box.innerHTML = people(S.players); }
+    const sig = S.players.map((p) => p.id + p.connected + p.isHost + p.char).join();
+    if (box.dataset.sig !== sig) {
+      const before = box.dataset.sig;
+      box.dataset.sig = sig;
+      box.innerHTML = lineup();
+      if (before) sfx('pop');
+    }
   }
   const n = S.players.filter((p) => p.connected).length;
   const need = Math.max(0, m.min - n);
@@ -295,4 +337,6 @@ function liveLobby() {
   if (el) el.textContent = need
     ? `нужно ещё ${need} ${plural(need, 'игрок', 'игрока', 'игроков')}`
     : n > m.max ? `играют ${m.max}, остальные — в зале · ★ жмёт «Начать»` : '★ жмёт «Начать» на телефоне';
+  const r = $('#rate');
+  if (r) r.innerHTML = m.ratings?.length > 1 ? `<span class="rbadge r-${S.rating}">${S.rating === 'family' ? '😇' : S.rating === 'adult' ? '🔞' : '☠️'} ${RATING[S.rating]}</span>` : '';
 }

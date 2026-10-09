@@ -74,3 +74,16 @@ textarea { min-height: 104px; resize: none; line-height: 1.35; }
 .gbtn:active, .gbtn.on { border-color: var(--a2); }
 .gdetail svg { width: 96px; height: 96px; }
 .rules { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.45; }
+
+/* выбор персонажа */
+.chargrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.chr { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 6px; border-radius: 14px; background: var(--card); border: 2px solid var(--line); font-size: 11px; line-height: 1.1; }
+.chr .cav { font-size: 17px; }
+.chr b { font-weight: 800; }
+.chr small { font-size: 10px; color: var(--dim); }
+.chr.mine { border-color: var(--a2); background: color-mix(in srgb, var(--a2) 18%, transparent); transform: scale(1.04); }
+.chr.taken { opacity: .38; }
+.seg { display: grid; grid-auto-flow: column; gap: 6px; }
+.seg button { display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 10px 6px; border-radius: 12px; background: var(--card); border: 2px solid var(--line); }
+.seg button b { font-size: 15px; } .seg button small { font-size: 10px; color: var(--dim); }
+.seg button.on { border-color: var(--a1); background: color-mix(in srgb, var(--a1) 22%, transparent); }
