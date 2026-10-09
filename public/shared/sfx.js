@@ -66,6 +66,8 @@ const FX = {
   slam: () => { tone(80, 0.4, { type: 'sine', gain: 0.4, slide: 0.5 }); hiss(0.2, { from: 800, to: 200, gain: 0.15, type: 'lowpass' }); },
   type: () => tone(2400 + Math.random() * 600, 0.015, { type: 'square', gain: 0.03 }),
   bell: () => { tone(1568, 1, { type: 'sine', gain: 0.12 }); tone(1568 * 2.7, 0.5, { type: 'sine', gain: 0.04 }); },
+  drip: () => { tone(1400, 0.12, { type: 'sine', gain: 0.12, slide: 0.45 }); tone(900, 0.1, { type: 'sine', gain: 0.06, at: 0.09, slide: 0.6 }); },
+  buzz: () => { tone(120, 0.5, { type: 'sawtooth', gain: 0.05 }); tone(240, 0.5, { type: 'square', gain: 0.02 }); },
 };
 
 export function sfx(name) { try { FX[name]?.(); } catch {} }

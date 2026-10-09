@@ -73,7 +73,7 @@ connect({
     if (m.t === 'welcome') { joinUrl = m.joinUrl; store.set('balagan.tv.code', m.code, sessionStorage); roomEl.innerHTML = `${esc(joinUrl.replace(/^https?:\/\//, '').replace(/\/j\/.*/, ''))} <b>${m.code}</b>`; return; }
     if (m.t === 'error') { store.del('balagan.tv.code', sessionStorage); if (!askedCode) location.reload(); return; }
     if (m.t === 'sound') return sfx(m.name);
-    if (m.t === 'say') return voice.say(m.text, theme(m.who || S?.gameId).voice);
+    if (m.t === 'say') { caption(m.text, theme(m.who || S?.gameId).host); return voice.say(m.text, theme(m.who || S?.gameId).voice); }
     if (m.t === 'state') { prev = S; S = m; render(); }
   },
 });
@@ -135,6 +135,9 @@ async function load(id) {
 function setTheme(id) {
   const g = id || 'menu';
   if (document.body.dataset.game === g) return;
+  // следы прошлой игры: классы на body и временные слои
+  document.body.className = '';
+  for (const el of document.querySelectorAll('[data-transient]')) el.remove();
   document.body.dataset.game = g;
   let link = $('#gamecss');
   if (id) {
@@ -161,6 +164,16 @@ function flash() {
   el.textContent = S.flash.text;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2400);
+}
+
+/* ---------- субтитры ведущего ---------- */
+let capEl = null, capTimer = 0;
+function caption(text, host) {
+  if (!capEl) { capEl = document.createElement('div'); capEl.className = 'caption'; document.body.appendChild(capEl); }
+  capEl.innerHTML = `<b>${esc(host)}</b>${esc(text)}`;
+  capEl.classList.remove('on'); void capEl.offsetWidth; capEl.classList.add('on');
+  clearTimeout(capTimer);
+  capTimer = setTimeout(() => capEl.classList.remove('on'), 1800 + text.length * 65);
 }
 
 /* ---------- общие кусочки разметки ---------- */

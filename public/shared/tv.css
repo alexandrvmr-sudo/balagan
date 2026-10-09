@@ -114,3 +114,10 @@ html, body { height: 100%; overflow: hidden; }
 .podium .p2 .stand { height: 21vh; background: color-mix(in srgb, var(--ink) 70%, transparent); animation-delay: .3s; }
 .podium .p3 .stand { height: 14vh; background: color-mix(in srgb, var(--a1) 75%, #000); }
 .podium .sc { font-family: var(--display); font-size: 2.4vmin; color: var(--a2); }
+
+/* ---------- субтитры ведущего ---------- */
+.caption { position: fixed; left: 50%; bottom: 2.4vmin; z-index: 41; max-width: min(120vmin, 90vw); transform: translate(-50%, 140%); opacity: 0;
+  padding: 1.2vmin 2.4vmin; border-radius: 1.6vmin; background: rgba(10, 8, 20, .82); color: #fff; font-size: 2vmin; line-height: 1.35; text-align: center;
+  backdrop-filter: blur(6px); transition: transform .45s var(--spring), opacity .3s; pointer-events: none; }
+.caption b { display: block; font-size: 1.3vmin; letter-spacing: .14em; text-transform: uppercase; color: var(--a2); margin-bottom: .3vmin; }
+.caption.on { transform: translate(-50%, 0); opacity: 1; }

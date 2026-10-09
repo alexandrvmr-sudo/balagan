@@ -1,0 +1,92 @@
+/* Санаторий «Тихий час» — кафель, хлорка, лампы дневного света, ржавчина */
+body[data-game="sanatoriy"] {
+  --bg: #0b1312; --bg2: #13201e; --ink: #e9f2ef; --dim: #8fa8a2;
+  --a1: #d7263d; --a2: #f4e9c1; --a3: #7ee0c3; --a4: #6fa8a0;
+  --display: 'Russo One', 'Inter', sans-serif;
+  --card: rgba(126, 224, 195, 0.06); --line: rgba(126, 224, 195, 0.16);
+}
+body[data-game="sanatoriy"] .backdrop::before {
+  inset: 0; animation: none;
+  background:
+    linear-gradient(rgba(126,224,195,.06) 2px, transparent 2px) 0 0 / 7vmin 7vmin,
+    linear-gradient(90deg, rgba(126,224,195,.06) 2px, transparent 2px) 0 0 / 7vmin 7vmin,
+    radial-gradient(80vmax 50vmax at 50% -10%, rgba(220,255,245,.14), transparent 60%),
+    radial-gradient(70vmax 60vmax at 50% 50%, transparent 40%, rgba(0,0,0,.8) 90%);
+}
+body[data-game="sanatoriy"] .backdrop .art { position: absolute; top: 0; left: 30%; right: 30%; height: 1.2vmin; background: #e8fff8; box-shadow: 0 0 6vmin 2vmin rgba(220,255,245,.35); border-radius: 0 0 1vmin 1vmin; animation: flicker 6s infinite; }
+body[data-game="sanatoriy"] .brand .bt span { color: var(--a1); }
+
+.sn-sign { font-family: var(--display); font-size: 7vmin; letter-spacing: .06em; color: var(--a1); text-shadow: 0 0 2vmin rgba(215,38,61,.6); animation: flicker 5s infinite; text-align: center; }
+.sn-note { font-family: 'Bad Script', cursive; color: var(--a2); font-size: 3vmin; }
+.sn-wrap { flex: 1; display: flex; flex-direction: column; gap: 2.6vmin; min-height: 0; }
+.sn-patients { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.4vmin; }
+.sn-p { position: relative; display: inline-flex; align-items: center; gap: .8vmin; padding: .6vmin 1.4vmin .6vmin .6vmin; border-radius: 99vmin; background: var(--card); border: 1px solid var(--line); font-weight: 800; font-size: 1.8vmin; transition: opacity .3s; }
+.sn-p .avatar { font-size: 1.7vmin; }
+.sn-p.ghost { opacity: .55; filter: grayscale(.8); animation: float 3s ease-in-out infinite; }
+.sn-p.ghost::after { content: '👻'; margin-left: .4vmin; }
+.sn-p.ok { border-color: var(--a3); }
+.sn-p.bad { border-color: var(--a1); background: rgba(215,38,61,.14); }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-.8vmin); } }
+
+/* вопрос на планшете */
+.sn-chart { align-self: center; width: min(130vmin, 100%); padding: 3vmin 4vmin; border-radius: 1.2vmin; background: var(--a2); color: #2a2418; box-shadow: 0 1.4vmin 0 rgba(0,0,0,.4); position: relative; animation: pop .5s var(--spring) both; }
+.sn-chart::before { content: ''; position: absolute; top: -1.8vmin; left: 50%; transform: translateX(-50%); width: 16vmin; height: 3.4vmin; border-radius: .8vmin; background: #8a8f8c; box-shadow: inset 0 -.5vmin 0 rgba(0,0,0,.25); }
+.sn-chart .no { font-family: 'Bad Script', cursive; font-size: 2.6vmin; color: #7a2a1c; }
+.sn-chart .q { font-size: 4.2vmin; font-weight: 800; line-height: 1.2; margin-top: .6vmin; }
+.sn-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 2vmin; width: min(130vmin, 100%); align-self: center; }
+.sn-opt { display: grid; grid-template-columns: 5vmin 1fr; align-items: center; gap: 1.6vmin; padding: 1.8vmin 2.4vmin; border-radius: 1.4vmin; background: var(--bg2); border: .3vmin solid var(--line); font-size: 3vmin; font-weight: 700; min-height: 9vmin; transition: border-color .3s, background .3s, opacity .3s; }
+.sn-opt b { display: grid; place-items: center; width: 5vmin; height: 5vmin; border-radius: 50%; background: var(--a4); color: #0b1312; font-family: var(--display); font-size: 2.6vmin; }
+.sn-opt .who { grid-column: 1 / -1; display: flex; gap: .5vmin; flex-wrap: wrap; }
+.sn-opt .who .avatar { font-size: 1.5vmin; }
+.sn-opt.right { border-color: var(--a3); background: rgba(126,224,195,.18); }
+.sn-opt.right b { background: var(--a3); }
+.sn-opt.wrong { opacity: .45; }
+
+/* процедуры */
+.sn-proc { font-family: var(--display); font-size: 10vmin; color: var(--a1); animation: slam .6s var(--ease) both; }
+.sn-glasses { display: flex; flex-wrap: wrap; justify-content: center; gap: 2.4vmin; }
+.sn-glass { position: relative; width: 9vmin; height: 13vmin; border: .5vmin solid rgba(233,242,239,.8); border-top: 0; border-radius: 0 0 2vmin 2vmin; overflow: hidden; animation: rise .5s var(--ease) both; }
+.sn-glass::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 70%; background: linear-gradient(180deg, #e0a06b, #b5651d); }
+.sn-glass .n { position: absolute; top: 1vmin; left: 0; right: 0; text-align: center; font-family: var(--display); font-size: 2.4vmin; z-index: 1; }
+.sn-glass .who { position: absolute; bottom: .6vmin; left: 0; right: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: .3vmin; z-index: 1; }
+.sn-glass .who .avatar { font-size: 1.3vmin; }
+.sn-glass.poison::before { background: linear-gradient(180deg, #8ee08a, #2f7d32); }
+.sn-glass.poison::after { content: '☠'; position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 4vmin; z-index: 1; }
+
+.sn-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 3vmin; }
+.sn-card { display: flex; flex-direction: column; align-items: center; gap: 1vmin; }
+.sn-grid { display: grid; grid-template-columns: repeat(3, 5vmin); gap: .8vmin; }
+.sn-grid i { display: grid; place-items: center; width: 5vmin; height: 5vmin; border-radius: .8vmin; background: var(--bg2); border: 1px solid var(--line); font-style: normal; font-size: 2.6vmin; }
+.sn-grid i.ok { background: rgba(126,224,195,.25); }
+.sn-grid i.skull { background: rgba(215,38,61,.35); }
+
+.sn-rooms { display: flex; justify-content: center; gap: 2.4vmin; }
+.sn-room { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 1vmin; width: 17vmin; height: 26vmin; padding: 1.6vmin; border-radius: 1vmin 1vmin 0 0; background: linear-gradient(180deg, #2b3b38, #1a2523); border: .4vmin solid #44605a; font-family: var(--display); font-size: 2.2vmin; }
+.sn-room .who { display: flex; flex-wrap: wrap; justify-content: center; gap: .4vmin; }
+.sn-room .who .avatar { font-size: 1.6vmin; }
+.sn-room.checked { border-color: var(--a1); background: linear-gradient(180deg, #4a1d24, #241012); box-shadow: 0 0 4vmin rgba(215,38,61,.4); }
+
+/* коридор побега */
+.sn-track { display: flex; flex-direction: column; gap: 1.2vmin; width: 100%; }
+.sn-lane { position: relative; height: 6vmin; border-radius: 1vmin; background: repeating-linear-gradient(90deg, rgba(126,224,195,.08) 0 calc(100% / var(--n) - 2px), rgba(126,224,195,.22) calc(100% / var(--n) - 2px) calc(100% / var(--n))); }
+.sn-lane .avatar { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 2.2vmin; transition: left 1s var(--spring); }
+.sn-lane.ghost .avatar { opacity: .55; filter: grayscale(.8); }
+.sn-lane::after { content: '🚪'; position: absolute; right: -4.5vmin; top: 50%; transform: translateY(-50%); font-size: 3.6vmin; }
+.sn-lane .nm { position: absolute; left: 1vmin; top: 50%; transform: translateY(-50%); font-size: 1.4vmin; color: var(--dim); }
+.sn-items { display: flex; justify-content: center; gap: 2.4vmin; }
+.sn-item { padding: 2vmin 3vmin; border-radius: 1.4vmin; background: var(--a2); color: #2a2418; font-size: 3vmin; font-weight: 800; animation: pop .5s var(--spring) both; }
+.sn-item.yes { background: var(--a3); }
+.sn-item.no { background: #5a2a2e; color: #f3d6d6; text-decoration: line-through; }
+.sn-stamp { font-family: var(--display); font-size: 9vmin; color: var(--a3); border: .8vmin solid var(--a3); padding: 1vmin 4vmin; border-radius: 2vmin; transform: rotate(-6deg); animation: slam .6s var(--ease) both; }
+
+/* телефон */
+.ph .sn-pq { padding: 16px; border-radius: 10px; background: var(--a2); color: #2a2418; font-size: 18px; font-weight: 800; line-height: 1.3; }
+.ph .sn-pq small { display: block; font-family: 'Bad Script', cursive; font-size: 16px; color: #7a2a1c; font-weight: 400; }
+.ph .sn-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ph .sn-btn { min-height: 74px; padding: 10px; border-radius: 14px; background: var(--bg2); border: 2px solid var(--line); font-size: 16px; font-weight: 800; }
+.ph .sn-btn:active, .ph .sn-btn.on { border-color: var(--a3); background: rgba(126,224,195,.2); }
+.ph .sn-cell { aspect-ratio: 1; border-radius: 12px; background: var(--bg2); border: 2px solid var(--line); font-size: 30px; }
+.ph .sn-cell.ok { background: rgba(126,224,195,.25); }
+.ph .sn-cell.skull { background: rgba(215,38,61,.35); }
+.ph .sn-g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+body[data-game="sanatoriy"].bad .backdrop::after { background: rgba(215,38,61,.18); inset: 0; }

@@ -127,6 +127,7 @@ async function load(id) {
 function setTheme(id) {
   const g = id || 'menu';
   if (document.body.dataset.game === g) return;
+  document.body.className = '';
   document.body.dataset.game = g;
   let link = $('#gamecss');
   if (id) {

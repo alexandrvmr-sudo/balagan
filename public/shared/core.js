@@ -50,4 +50,8 @@ export function updateRing(el, S) {
 export const secondsLeft = (S) => (S?.deadline ? Math.max(0, Math.ceil((S.deadline - Date.now()) / 1000)) : null);
 
 /* лёгкая вибрация на телефоне */
-export const buzz = (ms = 30) => { try { navigator.vibrate?.(ms); } catch {} };
+export const buzz = (ms = 30) => {
+  // браузер разрешает вибрацию только после касания экрана
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  try { navigator.vibrate?.(ms); } catch {}
+};

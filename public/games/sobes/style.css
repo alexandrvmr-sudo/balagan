@@ -1,0 +1,86 @@
+/* Собеседование — светлый опенспейс: миллиметровка, синий, лайм */
+body[data-game="sobes"] {
+  --bg: #eef2f8; --bg2: #ffffff; --ink: #18213a; --dim: #66708a;
+  --a1: #3a86ff; --a2: #b8f400; --a3: #19b37a; --a4: #ff6b6b;
+  --line: rgba(24, 33, 58, 0.12); --card: rgba(255, 255, 255, 0.85); --card-hi: #fff;
+  --display: 'Comfortaa', 'Inter', sans-serif;
+  --shadow: 0 1vmin 3vmin rgba(24, 33, 58, .12);
+}
+body[data-game="sobes"] .backdrop::before {
+  inset: 0; animation: none;
+  background:
+    linear-gradient(rgba(58,134,255,.07) 1px, transparent 1px) 0 0 / 3vmin 3vmin,
+    linear-gradient(90deg, rgba(58,134,255,.07) 1px, transparent 1px) 0 0 / 3vmin 3vmin,
+    radial-gradient(60vmax 50vmax at 80% 0%, rgba(184,244,0,.18), transparent 60%),
+    radial-gradient(60vmax 50vmax at 0% 100%, rgba(58,134,255,.14), transparent 60%);
+}
+body[data-game="sobes"] .brand .bt span { color: var(--a1); }
+body[data-game="sobes"] .chip, body[data-game="sobes"] .roomchip { background: #fff; }
+body[data-game="sobes"] .ring .bg { stroke: rgba(24,33,58,.12); }
+
+/* Анжела */
+.angela { position: relative; width: 14vmin; height: 14vmin; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff 0 8%, transparent 9%), linear-gradient(140deg, #3a86ff, #7b5cff 55%, #b8f400);
+  box-shadow: 0 0 0 .8vmin #fff, 0 1.4vmin 4vmin rgba(58,134,255,.35); animation: bob 3s ease-in-out infinite; flex: none; }
+.angela::before, .angela::after { content: ''; position: absolute; top: 40%; width: 1.4vmin; height: 3.2vmin; border-radius: 1vmin; background: #fff; animation: blink 4.5s infinite; }
+.angela::before { left: 33%; } .angela::after { right: 33%; }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.angela.small { width: 7vmin; height: 7vmin; box-shadow: 0 0 0 .4vmin #fff; }
+.angela.small::before, .angela.small::after { width: .7vmin; height: 1.6vmin; }
+
+/* разогрев и сборка */
+.sb-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vmin; text-align: center; }
+.sb-hero .big { color: var(--ink); }
+.sb-desks { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.8vmin; max-width: 130vmin; }
+.sb-desk { width: 17vmin; padding: 1.6vmin 1vmin; border-radius: 1.6vmin; background: #fff; box-shadow: var(--shadow); border: .3vmin solid transparent; transition: border-color .3s, transform .4s var(--spring); }
+.sb-desk .laptop { font-size: 4vmin; }
+.sb-desk .nm { font-weight: 800; font-size: 1.8vmin; margin-top: .6vmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-desk .st { font-size: 1.5vmin; color: var(--dim); }
+.sb-desk.done { border-color: var(--a3); transform: translateY(-.8vmin); }
+.sb-count { font-family: var(--display); font-size: 3vmin; font-weight: 700; color: var(--a1); }
+
+/* вопрос и ответы */
+.sb-vote { flex: 1; display: flex; flex-direction: column; gap: 3vmin; min-height: 0; }
+.sb-q { display: flex; align-items: center; gap: 2.4vmin; align-self: center; max-width: 150vmin; }
+.sb-q .bubble { position: relative; padding: 2.4vmin 3.4vmin; border-radius: 2.6vmin; background: #fff; box-shadow: var(--shadow); font-family: var(--display); font-weight: 700; font-size: 3.8vmin; line-height: 1.2; animation: pop .5s var(--spring) both; }
+.sb-q .bubble::before { content: ''; position: absolute; left: -1.6vmin; top: 50%; transform: translateY(-50%); border: 1.2vmin solid transparent; border-right: 1.8vmin solid #fff; border-left: 0; }
+.sb-pair { flex: 1; display: grid; grid-template-columns: 1fr auto 1fr; gap: 3vmin; align-items: center; min-height: 0; }
+.sb-cv { position: relative; display: flex; flex-direction: column; gap: 2vmin; padding: 3vmin; border-radius: 2vmin; background: #fff; box-shadow: var(--shadow); min-height: 28vh; justify-content: center; animation: rise .5s var(--ease) both; }
+.sb-cv:nth-child(3) { animation-delay: .12s; }
+.sb-cv .head { font-size: 1.5vmin; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; color: var(--dim); }
+.sb-or { font-family: var(--display); font-weight: 700; font-size: 3vmin; color: var(--a1); }
+.tiles { display: flex; flex-wrap: wrap; gap: 1vmin; }
+.tile { display: inline-block; padding: .8vmin 1.4vmin; border-radius: .8vmin; background: #f5f7fb; border: 1px solid var(--line); border-bottom: .5vmin solid var(--oc, #c3cad8); font-weight: 700; font-size: 2.8vmin; line-height: 1.1; box-shadow: 0 .3vmin 0 rgba(24,33,58,.08); animation: pop .4s var(--spring) both; }
+.tile.p { font-size: 2.8vmin; padding: .8vmin .8vmin; }
+.sb-cv .who { display: flex; align-items: center; gap: 1vmin; font-weight: 800; font-size: 2.2vmin; }
+.sb-cv .pts { font-family: var(--display); font-weight: 700; font-size: 3.2vmin; color: var(--a3); }
+.sb-cv .credit { font-size: 1.7vmin; color: var(--dim); display: flex; flex-wrap: wrap; gap: 1vmin; align-items: center; }
+.sb-cv .voters { display: flex; flex-wrap: wrap; gap: .6vmin; min-height: 3vmin; }
+.sb-cv .voters .avatar { font-size: 1.5vmin; }
+.stampy { position: absolute; top: 2vmin; right: 2vmin; padding: .8vmin 2vmin; border: .5vmin solid currentColor; border-radius: 1vmin; font-family: var(--display); font-weight: 700; font-size: 3vmin; transform: rotate(8deg); animation: slam .5s var(--ease) .4s both; }
+.stampy.yes { color: var(--a3); } .stampy.no { color: var(--a4); }
+.sb-cv.win { box-shadow: 0 0 0 .6vmin var(--a2), var(--shadow); }
+.sb-tally { display: flex; justify-content: center; gap: .8vmin; }
+.sb-tally i { width: 1.6vmin; height: 1.6vmin; border-radius: 50%; background: rgba(24,33,58,.15); }
+.sb-tally i.on { background: var(--a1); }
+
+/* табло на светлом */
+body[data-game="sobes"] .brow { background: #fff; box-shadow: var(--shadow); border: 0; }
+body[data-game="sobes"] .brow.first { background: linear-gradient(90deg, rgba(184,244,0,.4), #fff); }
+body[data-game="sobes"] .podium .p1 .stand { background: var(--a2); }
+body[data-game="sobes"] .podium .p2 .stand { background: #c3cad8; }
+body[data-game="sobes"] .podium .p3 .stand { background: var(--a1); color: rgba(255,255,255,.6); }
+.sb-job { padding: 2vmin 4vmin; border-radius: 2vmin; background: #fff; box-shadow: var(--shadow); font-family: var(--display); font-weight: 700; font-size: 4vmin; color: var(--a1); animation: pop .6s var(--spring) .6s both; }
+
+/* телефон */
+body[data-game="sobes"] .ph .btn { box-shadow: 0 5px 0 #1f5fc7; }
+body[data-game="sobes"] .ph .btn.ghost { background: #fff; box-shadow: none; color: var(--ink); }
+body[data-game="sobes"] .ph input, body[data-game="sobes"] .ph textarea { background: #fff; color: var(--ink); }
+body[data-game="sobes"] .ph .opt { background: #fff; }
+.ph .sb-pq { font-family: var(--display); font-weight: 700; font-size: 18px; line-height: 1.3; background: #fff; padding: 14px 16px; border-radius: 16px; box-shadow: var(--shadow); }
+.ph .sb-line { min-height: 64px; padding: 10px; border-radius: 14px; background: #fff; border: 2px dashed rgba(58,134,255,.5); display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+.ph .sb-line:empty::before { content: 'нажимай на слова — ответ соберётся здесь'; color: var(--dim); font-size: 13px; padding: 8px; }
+.ph .sb-bank { display: flex; flex-wrap: wrap; gap: 6px; }
+.ph .tl { padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid var(--line); border-bottom: 3px solid var(--oc, #c3cad8); font-weight: 700; font-size: 15px; line-height: 1; transition: transform .1s; }
+.ph .tl:active { transform: scale(.94); }
+.ph .tl.used { opacity: .25; pointer-events: none; }
+.ph .sb-line .tl { border-color: rgba(58,134,255,.4); }

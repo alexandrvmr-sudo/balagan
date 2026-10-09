@@ -16,8 +16,8 @@ body { min-height: 100dvh; }
 .ph-main { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
 .ph-foot { flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; }
 
-.ph h1 { font-size: 28px; line-height: 1.1; }
-.ph h2 { font-size: 22px; line-height: 1.15; }
+.ph h1 { font-size: 28px; line-height: 1.1; overflow-wrap: anywhere; hyphens: auto; }
+.ph h2 { font-size: 22px; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; }
 .sub { color: var(--dim); font-size: 15px; line-height: 1.5; }
 .tagline { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .prompt { font-family: var(--display); font-size: 22px; line-height: 1.22; }

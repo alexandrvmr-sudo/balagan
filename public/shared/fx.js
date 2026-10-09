@@ -5,7 +5,8 @@ let canvas = null, ctx = null, bits = [], raf = 0;
 function ensureCanvas() {
   if (canvas) return;
   canvas = document.createElement('canvas');
-  canvas.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:50';
+  // размер в CSS задаём явно: иначе на ретине холст растягивается вдвое и всё съезжает
+  canvas.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:50';
   document.body.appendChild(canvas);
   ctx = canvas.getContext('2d');
   const size = () => { canvas.width = innerWidth * devicePixelRatio; canvas.height = innerHeight * devicePixelRatio; };
