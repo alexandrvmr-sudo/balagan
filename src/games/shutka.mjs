@@ -1,488 +1,402 @@
-/* «Шутка на двоих» — затравка достаётся двум игрокам, остальные голосуют за смешной ответ.
-   Фазы: lobby → cooking → writing → voting → reveal → scores → ... → winner */
+/* «Шутка на двоих» — затравка достаётся паре игроков, остальные голосуют за смешной ответ.
+   Два раунда дуэлей и финал «Тройной удар»: три ответа на одну затравку, голоса — золото, серебро, бронза. */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { aiEnabled, generatePrompts, hostQuip } from '../ai.mjs';
+import { ask, line, z, aiEnabled } from '../ai.mjs';
+import { data, Deck, shuffle, pick, rnd, secs, clean, tally, playing, online } from '../lib.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const data = (f) => JSON.parse(fs.readFileSync(path.join(HERE, '..', '..', 'data', f), 'utf8'));
 const PACK = data('shutka.json');
-const BOT_LINES = data('bot-lines.json').lines;
 
-export const TEST_MODE = process.env.BALAGAN_TEST === '1';
+const ROUNDS = Math.max(2, Math.min(4, Number(process.env.BALAGAN_ROUNDS) || 3));
+const T = {
+  write: secs('BALAGAN_WRITE', 80, 35),
+  final: secs('BALAGAN_FINAL', 90, 40),
+  vote: secs('BALAGAN_VOTE', 20, 12),
+  fvote: secs('BALAGAN_FVOTE', 30, 15),
+  reveal: secs('BALAGAN_REVEAL', 7, 5),
+  scores: secs('BALAGAN_SCORES', 8, 5),
+};
+const value = (round) => (round >= ROUNDS ? 3000 : round * 1000);
+const MEDAL = { gold: 3, silver: 2, bronze: 1 };
 
-export const MAX_WRITERS = 10;          // больше — заходят в зал
-const num = (env, def) => Number(process.env[env]) || def;
-const t = (env, normal, test) => num(env, TEST_MODE ? test : normal);
-const WRITE_SECONDS = t('BALAGAN_WRITE', 80, 35);
-const VOTE_SECONDS = t('BALAGAN_VOTE', 20, 12);
-const REVEAL_SECONDS = t('BALAGAN_REVEAL', 7, 5);
-const SCORES_SECONDS = t('BALAGAN_SCORES', 8, 5);
-const TOTAL_ROUNDS = Math.max(1, Math.min(5, num('BALAGAN_ROUNDS', 3)));
-const roundValue = (n, total) => (n >= total ? 3000 : n * 1000);
-const ANSWER_MAX = 90;
+const HOST = 'Ты — Жанна, бойкая ведущая телешоу «Шутка на двоих». Тёплая, ироничная, подкалываешь по-доброму.';
 
-const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
-
-const writers = (room) => room.players.filter((p) => !p.audience);
-const audience = (room) => room.players.filter((p) => p.audience);
+const LINES = {
+  round: ['Раунд первый! Каждому — по две затравки.', 'Раунд второй! Очки удваиваются.', 'Ещё раунд!'],
+  final: ['Финал! Тройной удар: три ответа на одну затравку.'],
+  shutout: ['Шутка! Все голоса — одному!', 'Разгром! Зал единогласен.', 'Чистая победа!'],
+  tie: ['Ничья! Оба хороши.', 'Поровну. Зал не смог выбрать.'],
+  silent: ['Кто-то промолчал — и проиграл.', 'Молчание — не всегда золото.'],
+  win: ['Отличный ответ!', 'Зал сказал своё слово.', 'Вот это попадание!'],
+};
 
 export default {
   id: 'shutka',
   title: 'Шутка на двоих',
+  tagline: 'Двоим — одна затравка, залу — выбрать, кто смешнее',
   minPlayers: 3,
-  maxPlayers: MAX_WRITERS,
+  maxPlayers: 10,
+  minutes: 15,
+  usesAI: true,
+  intro: 'Шутка на двоих! Двое отвечают на одну затравку, остальные выбирают, кто смешнее.',
+  rules: [
+    'Каждому приходят две затравки — допиши самое смешное',
+    'С каждой затравкой сражается ещё один игрок',
+    'Остальные голосуют. Все голоса себе — это «Шутка!» и бонус',
+    'Финал «Тройной удар»: три ответа на одну затравку, голосуем медалями',
+  ],
 
   init(room) {
     room.state = {
       round: 0,
-      totalRounds: TOTAL_ROUNDS,
+      total: ROUNDS,
       topic: '',
-      pool: shuffle(PACK.prompts),
-      finalPool: shuffle(PACK.final),
-      aiPrompts: null,
-      cooking: false,
-      matches: [],          // [{ prompt, authors:[id,id], answers:{id:text}, votes:{voterId:authorId}, done }]
-      matchIdx: 0,
+      deck: new Deck(PACK.prompts),
+      finalDeck: new Deck(PACK.final),
+      safety: new Deck(PACK.safety),
+      matches: [],
+      idx: 0,
       quip: null,
-      lastRound: null,      // итоги прошлого раунда для табло
-      aiEnabled,
-      aiNote: aiEnabled ? null : 'ИИ выключен — играем на встроенном паке',
+      gains: {},
+      note: aiEnabled ? null : 'ИИ выключен — играем на встроенном паке',
     };
   },
 
-  /* ---------- вход игрока ---------- */
-  onPlayerJoin(room, player) {
-    if (player.bot) return;
-    const full = writers(room).length > MAX_WRITERS;
-    const started = room.phase !== 'lobby';
-    player.audience = full || started;
-    if (player.audience) player.isHost = false;
+  async start(room) {
+    if (aiEnabled) await cook(room);
+    startRound(room, 1);
   },
 
-  /* ---------- действия с телефона ---------- */
-  async onAction(room, player, msg) {
+  async onAction(room, p, msg) {
     const s = room.state;
-
     switch (msg.a) {
       case 'topic':
-        if (!player.isHost || room.phase !== 'lobby') return;
-        s.topic = String(msg.topic || '').slice(0, 120);
+        if (p.isHost && room.phase === 'lobby') s.topic = clean(msg.topic, 120);
         return;
-
-      case 'addBot': {
-        if (!TEST_MODE || !player.isHost || room.phase !== 'lobby') return;
-        if (writers(room).length >= MAX_WRITERS) return;
-        addBot(room);
-        return;
-      }
-
-      case 'dropBots': {
-        if (!TEST_MODE || !player.isHost || room.phase !== 'lobby') return;
-        for (const b of room.players.filter((x) => x.bot)) room.dropPlayer(b.id);
-        return;
-      }
-
-      case 'start': {
-        if (!player.isHost || room.phase !== 'lobby') return;
-        if (writers(room).length < this.minPlayers) return;
-        if (aiEnabled) await cook(room);
-        startRound(room, 1);
-        return;
-      }
 
       case 'answer': {
-        if (room.phase !== 'writing') return;
-        const text = String(msg.text || '').replace(/\s+/g, ' ').trim().slice(0, ANSWER_MAX);
+        if (room.phase !== 'writing' || p.audience) return;
+        const m = s.matches[msg.m];
+        if (!m || m.final || !m.authors.includes(p.id) || m.answers[p.id]) return;
+        const text = clean(msg.text, 90);
         if (!text) return;
-        const m = s.matches.find((x) => x.authors.includes(player.id) && !x.answers[player.id]);
-        if (!m) return;
-        m.answers[player.id] = text;
-        if (everyoneWrote(room)) { room.clearTimer(); toVoting(room); }
-        return;
+        m.answers[p.id] = text;
+        if (msg.safety) m.safety = { ...(m.safety || {}), [p.id]: true };
+        return afterWrite(room);
+      }
+
+      case 'safety': {
+        if (room.phase !== 'writing' || p.audience) return;
+        const m = s.matches[msg.m];
+        if (!m || m.final || !m.authors.includes(p.id) || m.answers[p.id]) return;
+        m.answers[p.id] = s.safety.draw();
+        m.safety = { ...(m.safety || {}), [p.id]: true };
+        return afterWrite(room);
+      }
+
+      case 'triple': {
+        if (room.phase !== 'writing' || p.audience) return;
+        const m = s.matches[0];
+        if (!m?.final || !m.authors.includes(p.id) || m.answers[p.id]) return;
+        const three = (msg.texts || []).slice(0, 3).map((x) => clean(x, 50)).filter(Boolean);
+        if (!three.length) return;
+        while (three.length < 3) three.push(s.safety.draw());
+        m.answers[p.id] = three;
+        return afterWrite(room);
       }
 
       case 'vote': {
         if (room.phase !== 'voting') return;
-        const m = s.matches[s.matchIdx];
-        if (!m) return;
-        if (m.final ? msg.for === player.id : m.authors.includes(player.id)) return;
-        if (m.votes[player.id]) return;                     // голос не меняем
-        if (!optionsFor(m, player.id).includes(msg.for)) return;
-        m.votes[player.id] = msg.for;
+        const m = s.matches[s.idx];
+        if (!m || m.final || m.authors.includes(p.id) || m.votes[p.id]) return;
+        if (!m.authors.includes(msg.for)) return;
+        m.votes[p.id] = msg.for;
         room.sound('vote');
-        if (everyoneVoted(room, m)) { room.clearTimer(); reveal(room); }
+        if (allVoted(room, m)) { room.clearTimer(); reveal(room); }
         return;
       }
 
-      case 'again': {
-        if (!player.isHost || room.phase !== 'winner') return;
-        this.init(room);
-        room.players.forEach((p) => { p.score = 0; });
-        // зал становится игроками, если место есть
-        room.players.forEach((p, i) => { p.audience = i >= MAX_WRITERS; });
-        if (room.players[0]) room.players[0].isHost = true;
-        room.phase = 'lobby';
-        room.clearTimer();
+      case 'medals': {
+        if (room.phase !== 'voting') return;
+        const m = s.matches[0];
+        if (!m?.final || m.votes[p.id]) return;
+        const opts = finalOptions(m, p.id);
+        const given = {};
+        for (const k of ['gold', 'silver', 'bronze']) {
+          const id = msg[k];
+          if (id && opts.includes(id) && !Object.values(given).includes(id)) given[k] = id;
+        }
+        if (!Object.keys(given).length) return;
+        m.votes[p.id] = given;
+        room.sound('vote');
+        if (allVoted(room, m)) { room.clearTimer(); reveal(room); }
         return;
       }
     }
   },
 
-  /* ---------- дедлайн фазы ---------- */
-  onTimeout(room) {
-    if (room.phase === 'writing') return toVoting(room);
-    if (room.phase === 'voting') return reveal(room);
-    if (room.phase === 'reveal') return afterReveal(room);
-    if (room.phase === 'scores') return nextRound(room);
-  },
-
-  /* ---------- что видит телевизор ---------- */
+  /* ---------- экран ---------- */
   viewTV(room) {
     const s = room.state;
-    const base = {
-      round: s.round, totalRounds: s.totalRounds, topic: s.topic,
-      aiEnabled: s.aiEnabled, aiNote: s.aiNote,
-      audienceCount: audience(room).filter((p) => p.connected).length,
-      writers: writers(room).map((p) => p.id),
-      minPlayers: this.minPlayers,
-    };
+    const base = { round: s.round, total: s.total, value: value(s.round), note: s.note, topic: s.topic, final: s.round >= s.total };
+    const m = s.matches[s.idx];
 
     if (room.phase === 'writing') {
+      return { ...base, progress: playing(room).map((p) => ({ id: p.id, done: doneCount(s, p.id), need: needCount(s, p.id) })) };
+    }
+    if (room.phase === 'voting' && m) {
       return {
-        ...base,
-        wrote: writers(room).map((p) => ({ id: p.id, done: answersOf(room, p).length, need: assignedTo(room, p) })),
-        roundValue: roundValue(s.round, s.totalRounds),
+        ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, prompt: m.prompt,
+        options: m.final ? finalOptions(m, null).map((id) => ({ id, three: m.answers[id] })) : m.authors.map((id) => ({ id, text: m.answers[id] || null })),
+        voted: Object.keys(m.votes).length, voters: voterIds(room, m).length,
       };
     }
-
-    if (room.phase === 'voting') {
-      const m = s.matches[s.matchIdx];
-      if (!m) return base;
-      return {
-        ...base,
-        matchNo: s.matchIdx + 1,
-        matchTotal: s.matches.length,
-        prompt: m.prompt,
-        final: !!m.final,
-        options: optionsFor(m, null).map((id) => ({ id, text: m.answers[id] || null })),
-        voted: Object.keys(m.votes).length,
-        voters: voterIds(room, m).length,
-      };
+    if (room.phase === 'reveal' && m) {
+      return { ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, prompt: m.prompt, result: m.result, quip: s.quip };
     }
-
-    if (room.phase === 'reveal') {
-      const m = s.matches[s.matchIdx];
-      if (!m) return base;
-      return {
-        ...base,
-        matchNo: s.matchIdx + 1,
-        matchTotal: s.matches.length,
-        prompt: m.prompt,
-        final: !!m.final,
-        result: m.result,
-        quip: s.quip,
-      };
-    }
-
-    if (room.phase === 'scores' || room.phase === 'winner') {
-      const table = writers(room).map((p) => ({ id: p.id, gained: s.lastRound?.[p.id] || 0 }));
-      return { ...base, table, isFinal: room.phase === 'winner' };
-    }
-
+    if (room.phase === 'scores' || room.phase === 'winner') return { ...base, gains: s.gains };
     return base;
   },
 
-  /* ---------- что видит телефон ---------- */
+  /* ---------- телефон ---------- */
   viewPlayer(room, p) {
     const s = room.state;
-    const my = { audience: !!p.audience, round: s.round, roundValue: roundValue(s.round, s.totalRounds) };
+    const my = { round: s.round, total: s.total, value: value(s.round), final: s.round >= s.total };
 
-    if (room.phase === 'lobby') {
-      return { ...my, canStart: p.isHost && writers(room).length >= this.minPlayers,
-        need: Math.max(0, this.minPlayers - writers(room).length),
-        topic: s.topic, aiEnabled: s.aiEnabled,
-        test: TEST_MODE, bots: room.players.filter((x) => x.bot).length };
-    }
-
-    if (room.phase === 'cooking') return { ...my, waiting: 'Придумываем задания под вашу компанию…' };
+    if (room.phase === 'lobby') return { topic: s.topic, ai: aiEnabled };
+    if (room.phase === 'cooking') return { ...my, wait: 'Придумываем затравки под вашу компанию…' };
 
     if (room.phase === 'writing') {
-      if (p.audience) return { ...my, waiting: 'Игроки пишут шутки. Голосовать будешь ты.' };
-      const mine = s.matches.filter((m) => m.authors.includes(p.id));
-      const pending = mine.find((m) => !m.answers[p.id]);
-      return {
-        ...my,
-        task: pending ? { prompt: pending.prompt, no: mine.indexOf(pending) + 1, of: mine.length, final: !!pending.final } : null,
-        waiting: pending ? null : 'Готово. Ждём остальных.',
-      };
+      if (p.audience) return { ...my, wait: 'Игроки пишут шутки — голосовать будешь ты' };
+      const mine = s.matches.map((m, i) => ({ m, i })).filter(({ m }) => m.authors.includes(p.id));
+      const todo = mine.find(({ m }) => !m.answers[p.id]);
+      if (!todo) return { ...my, wait: 'Готово! Ждём остальных' };
+      if (todo.m.final) return { ...my, triple: { prompt: todo.m.prompt } };
+      return { ...my, task: { m: todo.i, prompt: todo.m.prompt, no: mine.indexOf(todo) + 1, of: mine.length } };
     }
 
     if (room.phase === 'voting') {
-      const m = s.matches[s.matchIdx];
+      const m = s.matches[s.idx];
       if (!m) return my;
-      if (!m.final && m.authors.includes(p.id)) return { ...my, waiting: 'Это твоя шутка — смотри на экран.' };
-      const ids = optionsFor(m, p.id);
-      if (!ids.length) return { ...my, waiting: 'Голосовать не за что — смотри на экран.' };
-      return {
-        ...my,
-        vote: {
-          prompt: m.prompt,
-          final: !!m.final,
-          options: ids.map((id) => ({ id, text: m.answers[id] || '— промолчал —' })),
-        },
-        votedFor: m.votes[p.id] || null,
-      };
+      if (m.final) {
+        const opts = finalOptions(m, p.id);
+        if (!opts.length) return { ...my, wait: 'Голосовать не за что — смотри на экран' };
+        return { ...my, medals: { prompt: m.prompt, options: opts.map((id) => ({ id, three: m.answers[id] })) }, given: m.votes[p.id] || null };
+      }
+      if (m.authors.includes(p.id)) return { ...my, wait: 'Это твоя шутка — смотри на экран' };
+      return { ...my, vote: { prompt: m.prompt, options: m.authors.map((id) => ({ id, text: m.answers[id] || '— промолчал —' })) }, votedFor: m.votes[p.id] || null };
     }
 
     if (room.phase === 'winner') {
-      const top = [...writers(room)].sort((a, b) => b.score - a.score)[0];
-      return { ...my, winner: top ? { id: top.id, name: top.name, score: top.score } : null, canRestart: p.isHost };
+      const top = [...playing(room)].sort((a, b) => b.score - a.score)[0];
+      return { ...my, winner: top ? { id: top.id, name: top.name, score: top.score } : null };
     }
+    return { ...my, wait: 'Смотри на экран' };
+  },
 
-    return { ...my, waiting: 'Смотри на экран' };
+  /* ---------- боты ---------- */
+  stepKey: (room) => `${room.phase}:${room.state.round}:${room.state.idx}`,
+
+  botMoves(room, b) {
+    const s = room.state;
+    const moves = [];
+    if (room.phase === 'writing' && !b.audience) {
+      s.matches.forEach((m, i) => {
+        if (!m.authors.includes(b.id) || m.answers[b.id]) return;
+        if (m.final) moves.push({ delay: rnd(3, 9), msg: { a: 'triple', texts: [s.safety.draw(), s.safety.draw(), s.safety.draw()] } });
+        else moves.push({ delay: rnd(2, 8) + moves.length * 1.5, msg: { a: 'answer', m: i, text: s.safety.draw() } });
+      });
+    }
+    if (room.phase === 'voting') {
+      const m = s.matches[s.idx];
+      if (m?.final) {
+        const opts = shuffle(finalOptions(m, b.id));
+        if (opts.length) moves.push({ delay: rnd(2, 7), msg: { a: 'medals', gold: opts[0], silver: opts[1], bronze: opts[2] } });
+      } else if (m && !m.authors.includes(b.id)) {
+        moves.push({ delay: rnd(1.5, 6), msg: { a: 'vote', for: pick(m.authors) } });
+      }
+    }
+    return moves;
   },
 };
 
-/* =================== боты (только в тестовом режиме) =================== */
+/* =================== механика =================== */
 
-const BOT_NAMES = ['Бот Сеня', 'Бот Клава', 'Бот Гоша', 'Бот Рита', 'Бот Зина', 'Бот Фёдор'];
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
-const soon = (min, max) => min + Math.random() * (max - min);
+const doneCount = (s, id) => s.matches.filter((m) => m.authors.includes(id) && m.answers[id]).length;
+const needCount = (s, id) => s.matches.filter((m) => m.authors.includes(id)).length;
 
-export function addBot(room) {
-  const used = new Set(room.players.map((p) => p.name));
-  const name = BOT_NAMES.find((n) => !used.has(n)) || `Бот ${room.players.length + 1}`;
-  const b = room.addPlayer(name);
-  b.bot = true;
-  b.isHost = false;
-  b.audience = false;
-  return b;
-}
-
-/* Снимаем запланированные ходы ботов — фаза сменилась */
-function clearBots(room) {
-  for (const id of room.botTimers || []) clearTimeout(id);
-  room.botTimers = [];
-}
-
-function laterBot(room, seconds, fn) {
-  room.botTimers = room.botTimers || [];
-  room.botTimers.push(setTimeout(fn, seconds * 1000));
-}
-
-/* Боты пишут шутки */
-function botsWrite(room) {
-  clearBots(room);
-  const s = room.state;
-  for (const b of room.players.filter((p) => p.bot)) {
-    const mine = s.matches.filter((m) => m.authors.includes(b.id));
-    mine.forEach((m, i) => {
-      laterBot(room, soon(2, Math.min(WRITE_SECONDS - 4, 10)) + i * 1.5, () => {
-        if (room.phase !== 'writing' || m.answers[b.id]) return;
-        m.answers[b.id] = pick(BOT_LINES);
-        if (everyoneWrote(room)) { room.clearTimer(); clearBots(room); toVoting(room); }
-        else room.push();
-      });
-    });
-  }
-}
-
-/* Боты голосуют */
-function botsVote(room) {
-  clearBots(room);
-  const s = room.state;
-  const m = s.matches[s.matchIdx];
-  if (!m) return;
-  const idx = s.matchIdx;
-  for (const b of room.players.filter((p) => p.bot)) {
-    const opts = optionsFor(m, b.id);
-    if (!opts.length || (!m.final && m.authors.includes(b.id))) continue;
-    laterBot(room, soon(1.5, Math.min(VOTE_SECONDS - 3, 7)), () => {
-      if (room.phase !== 'voting' || s.matchIdx !== idx || m.votes[b.id]) return;
-      m.votes[b.id] = pick(opts);
-      if (everyoneVoted(room, m)) { room.clearTimer(); clearBots(room); reveal(room); }
-      else room.push();
-    });
-  }
-}
-
-/* =================== внутренняя механика =================== */
-
-function answersOf(room, p) {
-  return room.state.matches.filter((m) => m.authors.includes(p.id) && m.answers[p.id]);
-}
-
-/* сколько затравок досталось игроку: две в обычном раунде, одна в финале */
-function assignedTo(room, p) {
-  return room.state.matches.filter((m) => m.authors.includes(p.id)).length;
-}
-
-function everyoneWrote(room) {
-  return writers(room).every((p) => !p.connected || answersOf(room, p).length >= assignedTo(room, p));
-}
-
-/* Варианты для голосующего: в финале — все ответившие, кроме себя; в обычном раунде — оба ответа пары */
-function optionsFor(m, voterId) {
-  if (!m.final) return m.authors;
-  return m.authors.filter((id) => m.answers[id] && id !== voterId);
-}
+/* в финале — все ответившие, кроме себя */
+const finalOptions = (m, voterId) => m.authors.filter((id) => m.answers[id] && id !== voterId);
 
 function voterIds(room, m) {
-  return room.players
-    .filter((p) => p.connected && (m.final ? optionsFor(m, p.id).length > 0 : !m.authors.includes(p.id)))
+  return online(room.players)
+    .filter((p) => (m.final ? finalOptions(m, p.id).length > 0 : !m.authors.includes(p.id)))
     .map((p) => p.id);
 }
 
-function everyoneVoted(room, m) {
-  const ids = voterIds(room, m);
-  return ids.length > 0 && ids.every((id) => m.votes[id]);
+const allVoted = (room, m) => { const ids = voterIds(room, m); return ids.length > 0 && ids.every((id) => m.votes[id]); };
+
+function afterWrite(room) {
+  const s = room.state;
+  const everyone = playing(room).every((p) => !p.connected || doneCount(s, p.id) >= needCount(s, p.id));
+  if (everyone) { room.clearTimer(); toVoting(room); }
 }
 
 /* ИИ придумывает затравки под компанию */
 async function cook(room) {
   const s = room.state;
   room.phase = 'cooking';
-  s.cooking = true;
   room.push();
-  const names = writers(room).map((p) => p.name);
-  const { list, note } = await generatePrompts({ count: writers(room).length * 2 + 6, topic: s.topic, names });
-  s.cooking = false;
-
-  if (list?.length) {
-    // затравки раздаются через pop(), поэтому свежие кладём в конец — они уйдут первыми
-    const forFinal = list.slice(0, Math.min(2, list.length - 1));
-    const forRounds = list.slice(forFinal.length);
-    s.aiPrompts = list;
-    s.pool = [...s.pool, ...forRounds];
-    s.finalPool = [...s.finalPool, ...forFinal];
-    s.aiNote = `${list.length} заданий от ИИ${s.topic ? ` · «${s.topic}»` : ''}`;
-  } else {
-    s.aiNote = `${note || 'ИИ не ответил'} — играем на встроенном паке`;
-  }
+  const names = playing(room).filter((p) => !p.bot).map((p) => p.name);
+  const { data: res, note } = await ask({
+    system: `${HOST}
+Ты пишешь затравки для игры в духе Quiplash. Затравка — короткая фраза с пропуском ___, на которую игроки дописывают смешной ответ.
+Хорошая затравка: 4–12 слов, конкретная, неожиданная, допускает десятки разных ответов.
+Типы: «худшее название для…», «что сказать, когда…», «новая строчка в…», «тайный ингредиент…», «отзыв о…».
+Опирайся на узнаваемый российский быт: дача, маркетплейсы и пункты выдачи, тёща, общий чат, созвоны, ипотека, нейросети.
+Финальные затравки начинаются с «Три…» — на них отвечают тремя короткими пунктами.`,
+    user: [
+      s.topic ? `Тема вечера: ${s.topic}.` : 'Тема: дружеская вечеринка.',
+      names.length ? `Играют: ${names.join(', ')}. Имена можно обыграть по-доброму не чаще чем в каждой пятой затравке.` : '',
+      `Нужно ${playing(room).length * 2 + 4} обычных затравок и 3 финальные.`,
+    ].filter(Boolean).join('\n'),
+    schema: z.object({ prompts: z.array(z.string()), final: z.array(z.string()) }),
+  });
+  const ok = (list) => (list || []).map((x) => clean(x, 140)).filter((x) => x.length > 8 && x.includes('_'));
+  const fresh = ok(res?.prompts);
+  const fin = ok(res?.final);
+  if (fresh.length) {
+    s.deck.pushFront(fresh);
+    if (fin.length) s.finalDeck.pushFront(fin);
+    s.note = `${fresh.length + fin.length} затравок от ИИ${s.topic ? ` · «${s.topic}»` : ''}`;
+  } else s.note = `${note || 'ИИ не ответил'} — играем на встроенном паке`;
 }
 
-/* Раздача: N затравок на N игроков, каждая достаётся паре соседей по кругу */
 function startRound(room, n) {
   const s = room.state;
   s.round = n;
-  s.matchIdx = 0;
+  s.idx = 0;
   s.quip = null;
-  s.lastRound = {};
+  s.gains = {};
+  const ring = shuffle(playing(room).map((p) => p.id));
 
-  const ring = shuffle(writers(room).map((p) => p.id));
-  const N = ring.length;
-
-  if (n === s.totalRounds) {
-    // финал: одна затравка на всех
-    const prompt = s.finalPool.pop() || s.pool.pop() || 'Самое смешное, что случилось за этот вечер: ___';
-    s.matches = [{ prompt, authors: ring, answers: {}, votes: {}, final: true }];
+  if (n >= s.total) {
+    s.matches = [{ prompt: s.finalDeck.draw(), authors: ring, answers: {}, votes: {}, final: true }];
+    room.setTimer(T.final, () => toVoting(room));
+    room.say(LINES.final[0]);
   } else {
-    const picks = [];
-    for (let i = 0; i < N; i++) picks.push(s.pool.pop() || PACK.prompts[i % PACK.prompts.length]);
-    s.matches = picks.map((prompt, i) => ({
-      prompt, authors: [ring[i], ring[(i + 1) % N]], answers: {}, votes: {},
-    }));
+    s.matches = ring.map((id, i) => ({ prompt: s.deck.draw(), authors: [id, ring[(i + 1) % ring.length]], answers: {}, votes: {} }));
+    room.setTimer(T.write, () => toVoting(room));
+    room.say(LINES.round[Math.min(n - 1, LINES.round.length - 1)]);
   }
-
   room.phase = 'writing';
   room.sound('round');
-  room.setTimer(WRITE_SECONDS, () => room.game.onTimeout(room));
-  if (TEST_MODE) botsWrite(room);
-  room.push();
 }
 
 function toVoting(room) {
   const s = room.state;
-  s.matchIdx = 0;
+  s.idx = 0;
+  // пары, где никто ничего не написал, пропускаем
+  s.matches = s.matches.filter((m) => m.final || m.authors.some((id) => m.answers[id]));
+  if (!s.matches.length) return afterRound(room);
+  openVote(room);
+}
+
+function openVote(room) {
+  const s = room.state;
+  const m = s.matches[s.idx];
   room.phase = 'voting';
+  s.quip = null;
   room.sound('open');
-  room.setTimer(VOTE_SECONDS, () => room.game.onTimeout(room));
-  if (TEST_MODE) botsVote(room);
+  room.setTimer(m.final ? T.fvote : T.vote, () => reveal(room));
+  if (m.final) room.say(`${m.prompt.replace('___', '')} Раздайте медали.`);
+  else {
+    const [a, b] = m.authors.map((id) => m.answers[id] || 'тишина');
+    room.say(`${m.prompt.replace('___', '…')} ${a}. Или: ${b}.`);
+  }
   room.push();
 }
 
-/* Подсчёт голосов текущей пары */
 async function reveal(room) {
   const s = room.state;
-  const m = s.matches[s.matchIdx];
+  const m = s.matches[s.idx];
   if (!m) return afterReveal(room);
+  const val = value(s.round);
+  let rows;
 
-  const tally = {};
-  for (const id of m.authors) tally[id] = 0;
-  for (const target of Object.values(m.votes)) if (target in tally) tally[target]++;
-
-  const total = Object.values(tally).reduce((a, b) => a + b, 0);
-  const value = roundValue(s.round, s.totalRounds);
-
-  const shown = m.final ? m.authors.filter((id) => m.answers[id]) : m.authors;
-  const rows = shown.map((id) => {
-    const p = room.byId(id);
-    const votes = tally[id] || 0;
-    const noAnswer = !m.answers[id];
-    const share = total ? votes / total : 0;
-    const pts = noAnswer ? 0 : Math.round(share * value / 10) * 10;
-    if (p) { p.score += pts; s.lastRound[id] = (s.lastRound[id] || 0) + pts; }
-    return { id, name: p?.name || '—', color: p?.color || '#888', emoji: p?.emoji || '', text: m.answers[id] || null, votes, pts };
-  }).sort((a, b) => b.votes - a.votes);
-
-  const shutout = total > 1 && rows[0].votes === total && rows[0].text;
-  if (shutout) {
-    const p = room.byId(rows[0].id);
-    const bonus = Math.round(value * 0.25);
-    if (p) { p.score += bonus; s.lastRound[rows[0].id] += bonus; rows[0].pts += bonus; }
-    rows[0].shutout = true;
+  if (m.final) {
+    const pts = Object.fromEntries(m.authors.map((id) => [id, 0]));
+    const medals = Object.fromEntries(m.authors.map((id) => [id, { gold: 0, silver: 0, bronze: 0 }]));
+    for (const given of Object.values(m.votes)) {
+      for (const [k, id] of Object.entries(given)) { if (id in pts) { pts[id] += MEDAL[k]; medals[id][k]++; } }
+    }
+    const total = Object.values(pts).reduce((a, b) => a + b, 0) || 1;
+    rows = m.authors.filter((id) => m.answers[id]).map((id) => {
+      const p = room.byId(id);
+      const gain = Math.round((pts[id] / total) * val / 10) * 10;
+      award(room, id, gain);
+      const voters = Object.entries(m.votes).flatMap(([v, given]) => Object.entries(given).filter(([, to]) => to === id).map(([k]) => ({ id: v, k })));
+      return { id, three: m.answers[id], votes: pts[id], medals: medals[id], pts: gain, voters };
+    }).sort((a, b) => b.votes - a.votes);
+    m.result = { rows, final: true };
+    room.say(rows[0] ? `Лучший тройной удар у игрока ${room.byId(rows[0].id)?.name}!` : 'Финал без ответов.');
+  } else {
+    const t = tally(m.votes, m.authors);
+    const total = Object.values(t).reduce((a, b) => a + b, 0);
+    rows = m.authors.map((id) => {
+      const silent = !m.answers[id];
+      const gain = silent || !total ? 0 : Math.round((t[id] / total) * val / 10) * 10;
+      const voters = Object.entries(m.votes).filter(([, to]) => to === id).map(([v]) => v);
+      return { id, text: m.answers[id] || null, votes: t[id], pts: gain, safety: !!m.safety?.[id], voters };
+    }).sort((a, b) => b.votes - a.votes);
+    const shutout = total > 1 && rows[0].votes === total && rows[0].text;
+    if (shutout) { rows[0].pts += Math.round(val * 0.25); rows[0].shutout = true; }
+    for (const r of rows) award(room, r.id, r.pts);
+    const tie = total > 0 && rows[0].votes === rows[1]?.votes;
+    m.result = { rows, total, shutout, tie };
+    room.say(shutout ? pick(LINES.shutout) : tie ? pick(LINES.tie) : rows.some((r) => !r.text) ? pick(LINES.silent) : pick(LINES.win));
+    room.sound(shutout ? 'shutout' : 'reveal');
   }
 
-  m.result = { rows, total, shutout };
   room.phase = 'reveal';
-  room.sound(shutout ? 'shutout' : 'reveal');
-  s.quip = null;
-  room.setTimer(REVEAL_SECONDS, () => room.game.onTimeout(room));
+  room.setTimer(m.final ? T.reveal + 3 : T.reveal, () => afterReveal(room));
   room.push();
 
-  // реплика ведущего догоняет экран, когда ИИ ответит
-  if (aiEnabled && rows[0]?.text) {
-    const atMatch = `${s.round}:${s.matchIdx}`;
-    const line = await hostQuip({
-      prompt: m.prompt,
-      winner: { text: rows[0].text, name: rows[0].name, votes: rows[0].votes },
-      loser: rows[1]?.text ? { text: rows[1].text, name: rows[1].name, votes: rows[1].votes } : null,
-      shutout,
+  // ведущая комментирует, если ИИ успеет
+  if (aiEnabled && !m.final && rows[0]?.text) {
+    const at = `${s.round}:${s.idx}`;
+    const q = await line({
+      host: HOST,
+      user: `Затравка: «${m.prompt}». Победил ответ «${rows[0].text}» (${rows[0].votes} голосов)${rows[1]?.text ? `, проиграл «${rows[1].text}» (${rows[1].votes})` : ''}. Прокомментируй.`,
     });
-    if (line && room.phase === 'reveal' && `${s.round}:${s.matchIdx}` === atMatch) {
-      s.quip = line;
-      room.push();
-    }
+    if (q && room.phase === 'reveal' && `${s.round}:${s.idx}` === at) { s.quip = q; room.say(q); room.push(); }
   }
+}
+
+function award(room, id, pts) {
+  const p = room.byId(id);
+  if (!p || !pts) return;
+  p.score += pts;
+  room.state.gains[id] = (room.state.gains[id] || 0) + pts;
 }
 
 function afterReveal(room) {
   const s = room.state;
-  if (s.matchIdx + 1 < s.matches.length) {
-    s.matchIdx++;
-    s.quip = null;
-    room.phase = 'voting';
-    room.sound('open');
-    room.setTimer(VOTE_SECONDS, () => room.game.onTimeout(room));
-    if (TEST_MODE) botsVote(room);
-    return room.push();
-  }
-  // раунд кончился
-  if (s.round >= s.totalRounds) {
+  if (s.idx + 1 < s.matches.length) { s.idx++; return openVote(room); }
+  afterRound(room);
+}
+
+function afterRound(room) {
+  const s = room.state;
+  if (s.round >= s.total) {
     room.phase = 'winner';
     room.clearTimer();
     room.sound('win');
+    const top = [...playing(room)].sort((a, b) => b.score - a.score)[0];
+    if (top) room.say(`Самый смешной человек вечера — ${top.name}!`);
     return room.push();
   }
   room.phase = 'scores';
   room.sound('scores');
-  room.setTimer(SCORES_SECONDS, () => room.game.onTimeout(room));
+  room.setTimer(T.scores, () => { startRound(room, s.round + 1); room.push(); });
   room.push();
-}
-
-function nextRound(room) {
-  startRound(room, room.state.round + 1);
 }

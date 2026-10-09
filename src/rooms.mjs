@@ -1,36 +1,65 @@
-/* Менеджер комнат: код, игроки, переподключение, таймеры фаз.
-   Движок ничего не знает о правилах — это дело модулей в src/games. */
+/* Комнаты: код, игроки, переподключение, таймер фазы, голос ведущего, боты.
+   Правила игр живут в src/games — комната о них ничего не знает. */
+
+import { TEST_MODE } from './lib.mjs';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // без I и O — путают с 1 и 0
 const PALETTE = [
   '#ff5d73', '#4dd4ac', '#ffb703', '#6c8cff', '#c77dff',
   '#ff8fab', '#56cfe1', '#f9844a', '#9bf6a9', '#e0aaff',
+  '#ffd166', '#06d6a0', '#ef476f', '#118ab2', '#f4a261',
 ];
-const EMOJI = ['🦊', '🐸', '🦉', '🐙', '🦄', '🐝', '🦝', '🐬', '🐲', '🦩'];
+const EMOJI = ['🦊', '🐸', '🦉', '🐙', '🦄', '🐝', '🦝', '🐬', '🐲', '🦩', '🐻', '🦔', '🐧', '🦦', '🐌'];
 
 const ROOM_TTL = 1000 * 60 * 60 * 4;   // комната живёт 4 часа без активности
-const GRACE = 1000 * 60 * 10;          // столько ждём вернувшийся телефон
+const GRACE = 1000 * 60 * 10;          // столько ждём вернувшийся телефон в лобби
 
 const rid = (n = 8) => Math.random().toString(36).slice(2, 2 + n);
 
+/* Карточка игры для меню и лобби */
+export const metaOf = (g) => ({
+  id: g.id, title: g.title, tagline: g.tagline, rules: g.rules,
+  min: g.minPlayers, max: g.maxPlayers, minutes: g.minutes, ai: !!g.usesAI,
+});
+
 export class Room {
-  constructor(game) {
+  constructor() {
     this.code = '';
-    this.game = game;
-    this.phase = 'lobby';
+    this.game = null;            // null — меню выбора игры
+    this.phase = 'menu';
     this.players = [];
-    this.state = {};               // приватное состояние игры
-    this.deadline = null;          // ms epoch или null
-    this.timer = null;             // серверный setTimeout
-    this.sockets = new Set();      // все tv-сокеты
+    this.state = {};
+    this.deadline = null;
+    this.timerTotal = null;
+    this.timer = null;
+    this.timerCb = null;
+    this.sockets = new Set();    // экраны
     this.touched = Date.now();
-    this.flash = null;             // короткое событие для экрана
+    this.flash = null;
+    this.hover = null;           // какую игру хост разглядывает в меню
+    this.botTimers = [];
+    this.botKey = '';
+    this.catalog = [];           // список игр для меню, задаёт сервер
+  }
+
+  /* --- игра --- */
+  setGame(game) {
+    this.clearTimer();
+    this.clearBots();
+    this.botKey = '';
+    this.game = game;
+    this.state = {};
+    this.flash = null;
+    this.hover = null;
+    for (const p of this.players) { p.score = 0; p.audience = false; }
+    if (game) { this.phase = 'lobby'; game.init(this); }
+    else this.phase = 'menu';
   }
 
   /* --- игроки --- */
-  addPlayer(name) {
+  addPlayer(name, { bot = false } = {}) {
     const taken = new Set(this.players.map((p) => p.name.toLowerCase()));
-    let base = (name || '').trim().slice(0, 14) || 'Игрок';
+    const base = (name || '').trim().slice(0, 14) || 'Игрок';
     let n = base;
     let i = 2;
     while (taken.has(n.toLowerCase())) n = `${base} ${i++}`;
@@ -42,8 +71,10 @@ export class Room {
       color: PALETTE[idx % PALETTE.length],
       emoji: EMOJI[idx % EMOJI.length],
       score: 0,
-      isHost: this.players.length === 0,
+      isHost: !bot && !this.players.some((x) => x.isHost),
       connected: true,
+      audience: false,
+      bot,
       socket: null,
       goneAt: null,
     };
@@ -53,13 +84,14 @@ export class Room {
 
   byToken(token) { return this.players.find((p) => p.token === token); }
   byId(id) { return this.players.find((p) => p.id === id); }
-  get host() { return this.players.find((p) => p.isHost); }
-  get live() { return this.players.filter((p) => p.connected); }
 
   dropPlayer(id) {
     const wasHost = this.byId(id)?.isHost;
     this.players = this.players.filter((p) => p.id !== id);
-    if (wasHost && this.players.length) this.players[0].isHost = true;
+    if (wasHost) {
+      const next = this.players.find((p) => !p.bot);
+      if (next) next.isHost = true;
+    }
   }
 
   /* --- таймер фазы --- */
@@ -67,25 +99,22 @@ export class Room {
     this.clearTimer();
     if (!seconds) return;
     this.deadline = Date.now() + seconds * 1000;
+    this.timerTotal = seconds * 1000;
+    this.timerCb = onEnd;
     this.timer = setTimeout(() => {
       this.timer = null;
       this.deadline = null;
+      this.timerTotal = null;
       onEnd?.();
     }, seconds * 1000);
-  }
-
-  addTime(seconds) {
-    if (!this.deadline || !this.timer) return;
-    const left = this.deadline - Date.now() + seconds * 1000;
-    const cb = this.timer._onTimeout;
-    this.clearTimer();
-    if (left > 0) this.setTimer(left / 1000, cb);
   }
 
   clearTimer() {
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.deadline = null;
+    this.timerTotal = null;
+    this.timerCb = null;
   }
 
   /* --- связь --- */
@@ -94,43 +123,79 @@ export class Room {
     try { socket.send(JSON.stringify(msg)); } catch {}
   }
 
-  sound(name) {
-    for (const s of this.sockets) this.send(s, { t: 'sound', name });
-  }
+  toScreens(msg) { for (const s of this.sockets) this.send(s, msg); }
 
-  /* Отправляет каждому его персональный вид. Экран получает viewTV. */
+  sound(name) { this.toScreens({ t: 'sound', name }); }
+
+  /* Ведущий говорит вслух — экран озвучит синтезом речи */
+  say(text, opts = {}) { if (text) this.toScreens({ t: 'say', text, ...opts }); }
+
+  /* Каждому — свой вид. Экран получает viewTV, телефоны — viewPlayer. */
   push() {
     this.touched = Date.now();
     const base = {
       code: this.code,
-      gameId: this.game.id,
-      gameTitle: this.game.title,
+      gameId: this.game?.id || null,
+      gameTitle: this.game?.title || null,
       phase: this.phase,
       deadline: this.deadline,
+      timerTotal: this.timerTotal,
       flash: this.flash,
+      hover: this.hover,
+      test: TEST_MODE,
+      games: this.game ? null : this.catalog,
+      meta: this.game ? metaOf(this.game) : null,
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, color: p.color, emoji: p.emoji,
-        score: p.score, isHost: p.isHost, connected: p.connected,
+        id: p.id, name: p.name, color: p.color, emoji: p.emoji, score: p.score,
+        isHost: p.isHost, connected: p.connected, audience: p.audience, bot: p.bot,
       })),
     };
-    const tv = { t: 'state', view: 'tv', ...base, ...(this.game.viewTV?.(this) || {}) };
+    const g = this.game;
+    const tv = { t: 'state', view: 'tv', ...base, ...(g?.viewTV?.(this) || {}) };
     for (const s of this.sockets) this.send(s, tv);
     for (const p of this.players) {
       if (!p.socket) continue;
       this.send(p.socket, {
         t: 'state', view: 'player', ...base,
-        you: { id: p.id, name: p.name, color: p.color, emoji: p.emoji, score: p.score, isHost: p.isHost },
-        ...(this.game.viewPlayer?.(this, p) || {}),
+        you: { id: p.id, name: p.name, color: p.color, emoji: p.emoji, score: p.score, isHost: p.isHost, audience: p.audience },
+        ...(g?.viewPlayer?.(this, p) || {}),
       });
     }
+    this.scheduleBots();
   }
 
-  /* Короткая вспышка на экране (попадание, «шутка!» и т.п.) */
   setFlash(data, ms = 2600) {
-    this.flash = data ? { ...data, at: Date.now() } : null;
+    const at = Date.now();
+    this.flash = data ? { ...data, at } : null;
     if (data) setTimeout(() => {
-      if (this.flash?.at === data.at) { this.flash = null; this.push(); }
+      if (this.flash?.at === at) { this.flash = null; this.push(); }
     }, ms);
+  }
+
+  /* --- боты: ходят теми же действиями, что и люди --- */
+  clearBots() {
+    for (const t of this.botTimers) clearTimeout(t);
+    this.botTimers = [];
+  }
+
+  scheduleBots() {
+    const g = this.game;
+    if (!g?.botMoves) return;
+    const bots = this.players.filter((p) => p.bot);
+    if (!bots.length) return;
+    const key = g.stepKey ? g.stepKey(this) : this.phase;
+    if (key === this.botKey) return;
+    this.botKey = key;
+    this.clearBots();
+    for (const b of bots) {
+      for (const m of g.botMoves(this, b) || []) {
+        this.botTimers.push(setTimeout(async () => {
+          if (this.botKey !== key || this.game !== g || !this.players.includes(b)) return;
+          try { await g.onAction(this, b, m.msg); } catch (e) { console.error('[bot]', e); }
+          this.push();
+        }, m.delay * 1000));
+      }
+    }
   }
 }
 
@@ -148,10 +213,9 @@ export class Rooms {
     throw new Error('не нашлось свободного кода');
   }
 
-  create(game) {
-    const room = new Room(game);
+  create() {
+    const room = new Room();
     room.code = this.freshCode();
-    game.init?.(room);
     this.map.set(room.code, room);
     return room;
   }
@@ -162,16 +226,17 @@ export class Rooms {
     const room = this.map.get(code);
     if (!room) return;
     room.clearTimer();
+    room.clearBots();
     this.map.delete(code);
   }
 
-  /* Чистим мёртвые комнаты и игроков, которые не вернулись */
   sweep() {
     const now = Date.now();
     for (const [code, room] of this.map) {
       let changed = false;
+      const idle = room.phase === 'menu' || room.phase === 'lobby';
       for (const p of [...room.players]) {
-        if (!p.connected && p.goneAt && now - p.goneAt > GRACE && room.phase === 'lobby') {
+        if (!p.bot && !p.connected && p.goneAt && now - p.goneAt > GRACE && idle) {
           room.dropPlayer(p.id);
           changed = true;
         }

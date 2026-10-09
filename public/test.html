@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Балаган · песочница</title>
-<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/shared/base.css">
 <style>
   html, body { overflow: hidden; height: 100%; }
   .wrap { display: flex; flex-direction: column; height: 100vh; padding: 14px; gap: 12px; }
@@ -44,7 +44,7 @@
     <div class="chip">комната <b id="code">····</b></div>
     <button class="btn hot" id="add">+ телефон</button>
     <button class="btn" id="fresh">новая комната</button>
-    <span class="note">Боты добавляются кнопкой на первом телефоне — он хост. Телефоны можно закрывать крестиком, игра переживает уход.</span>
+    <span class="note">Первый телефон — хост: выбирает игру и добавляет ботов. Кликни по экрану, чтобы включить звук.</span>
   </div>
   <div class="desk">
     <div class="tv"><iframe id="tv" title="экран"></iframe></div>
@@ -71,7 +71,7 @@ async function room(fresh) {
 async function boot(fresh) {
   await room(fresh);
   codeBox.textContent = code;
-  document.getElementById('tv').src = `/tv?code=${code}`;
+  document.getElementById('tv').src = `/tv?code=${code}&nosplash=1`;
   phones.innerHTML = '<div class="empty">Нажми «+ телефон»</div>';
   seat = 0;
   addPhone(); addPhone(); addPhone();

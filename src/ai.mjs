@@ -1,39 +1,27 @@
-/* Генерация контента через Claude API.
-   Без ключа ANTHROPIC_API_KEY всё работает на встроенном паке — ИИ просто выключен. */
+/* Claude для всех игр: генерация контента и реплики ведущих.
+   Без ключа или без денег на счёте всё работает на встроенных паках — ИИ просто молчит. */
 
 import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
+
+export { z };
 
 const MODEL = process.env.BALAGAN_MODEL || 'claude-opus-5-5';
 
 export const aiEnabled = Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 const client = aiEnabled ? new Anthropic() : null;
 
-const RULES = `Ты — автор заданий для вечериночной игры «Шутка на двоих» (жанр Quiplash) на русском языке.
-Задание — короткая затравка, на которую игроки дописывают смешной ответ. Пропуск обозначается знаком ___.
+/* Красные линии — общие для всех игр (см. docs/RESEARCH.md, раздел 3) */
+export const SAFETY = `Строгие ограничения контента. Никогда не касайся:
+политики, власти, выборов, политиков; войны, армии, СВО, мобилизации; религии и верующих;
+национальностей и этносов; ЛГБТ-тематики; наркотиков; суицида, тяжёлых болезней, смерти реальных людей;
+блокировок, VPN и обхода ограничений; реальных людей как объекта насмешки.
+Не смейся над внешностью, весом, бедностью. Подкалывай по-доброму, как друзья за столом.
+Пиши живым разговорным русским языком, без канцелярита.`;
 
-Как писать хорошо:
-- Коротко: 4–12 слов. Длинная затравка убивает шутку.
-- Конкретно и неожиданно: не «Назови что-нибудь смешное», а «Худшее название для детского сада: ___».
-- Затравка должна допускать десятки разных ответов — это соль игры.
-- Живой разговорный русский, без канцелярита и без пояснений в скобках.
-- Разные типы: «худшее название для…», «что сказать, когда…», «новая строчка в резюме…», «реклама …», «твой тост на …», сравнения, советы.
-
-Запрещено: политика и выборы, национальность и религия, шутки про смерть и болезни,
-сексуальное содержание, оскорбления конкретных реальных людей,
-задания, где надо выдать личные данные кого-то из игроков.`;
-
-const PromptPack = z.object({
-  prompts: z.array(z.string()).describe('Затравки с ___ на месте пропуска'),
-});
-
-const Quip = z.object({
-  line: z.string().describe('Реплика ведущего, 4–14 слов'),
-});
-
-/* Разбираем отказ API в человеческую фразу для экрана */
-function explain(e) {
+/* Отказ API → короткая фраза для экрана */
+export function explain(e) {
   const msg = String(e?.message || e);
   if (e?.status === 400 && /credit balance/i.test(msg)) return 'на счёте Anthropic нет средств';
   if (e?.status === 401 || /authentication/i.test(msg)) return 'ключ не принят';
@@ -42,61 +30,40 @@ function explain(e) {
   return 'ИИ не ответил';
 }
 
-/* --- затравки --- */
-export async function generatePrompts({ count = 12, topic = '', names = [] } = {}) {
-  if (!client) return { list: null, note: null };
-
-  const ctx = [
-    topic ? `Тема и контекст вечеринки: ${topic}.` : 'Тема: обычная дружеская вечеринка.',
-    names.length ? `За столом: ${names.join(', ')}. Можешь иногда обыгрывать имена по-доброму, но не чаще чем в каждой четвёртой затравке и только безобидно.` : '',
-    `Сочини ровно ${count} затравок. Все разные по типу и ритму.`,
-  ].filter(Boolean).join('\n');
-
+/* Один запрос со структурированным ответом.
+   Возвращает { data, note }: data — разобранный объект или null, note — почему не вышло. */
+export async function ask({ system, user, schema, effort = 'medium', maxTokens = 6000 }) {
+  if (!client) return { data: null, note: null };
   try {
-    const res = await client.messages.parse({
+    const res = await client.beta.messages.parse({
       model: MODEL,
-      max_tokens: 4000,
-      system: RULES,
-      output_config: { effort: 'medium', format: zodOutputFormat(PromptPack) },
-      messages: [{ role: 'user', content: ctx }],
+      max_tokens: maxTokens,
+      system: `${system}\n\n${SAFETY}`,
+      // если модель откажется, запрос сам переедет на резервную
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort, format: betaZodOutputFormat(schema) },
+      messages: [{ role: 'user', content: user }],
     });
-    if (res.stop_reason === 'refusal') return { list: null, note: 'ИИ отказался от темы' };
-    const list = (res.parsed_output?.prompts || [])
-      .map((s) => String(s).trim())
-      .filter((s) => s.length > 6 && s.includes('_'));
-    return list.length ? { list, note: null } : { list: null, note: 'ИИ не ответил' };
+    if (res.stop_reason === 'refusal') return { data: null, note: 'ИИ отказался от темы' };
+    if (!res.parsed_output) return { data: null, note: 'ИИ ответил не по форме' };
+    return { data: res.parsed_output, note: null };
   } catch (e) {
     const note = explain(e);
-    console.warn(`[ai] затравки не вышли (${note}):`, e?.message || e);
-    return { list: null, note };
+    console.warn(`[ai] ${note}:`, String(e?.message || e).slice(0, 200));
+    return { data: null, note };
   }
 }
 
-/* --- реплика конферансье по итогам раунда --- */
-export async function hostQuip({ prompt, winner, loser, shutout }) {
-  if (!client) return null;
-  const task = [
-    `Затравка: «${prompt}»`,
-    winner ? `Победил ответ: «${winner.text}» (автор ${winner.name}), голосов ${winner.votes}.` : '',
-    loser ? `Проиграл ответ: «${loser.text}» (автор ${loser.name}), голосов ${loser.votes}.` : '',
-    shutout ? 'Разгром: победитель забрал все голоса.' : '',
-    'Одна реплика ведущего вслух: живая, с характером, без пояснений и без кавычек. 4–14 слов.',
-  ].filter(Boolean).join('\n');
-
-  try {
-    const res = await client.messages.parse({
-      model: MODEL,
-      max_tokens: 700,
-      system: `Ты — ведущий вечериночной игры. Говоришь коротко, тепло и с юмором, подкалываешь по-доброму.
-Никогда не обижаешь, не поучаешь и не объясняешь шутку. Только русский язык.`,
-      output_config: { effort: 'low', format: zodOutputFormat(Quip) },
-      messages: [{ role: 'user', content: task }],
-    });
-    if (res.stop_reason === 'refusal') return null;
-    const line = res.parsed_output?.line?.trim();
-    return line && line.length < 160 ? line : null;
-  } catch (e) {
-    console.warn('[ai] реплика не вышла:', e?.message || e);
-    return null;
-  }
+/* Короткая реплика ведущего: строка или null */
+export async function line({ host, user, max = 160 }) {
+  const { data } = await ask({
+    system: `${host}\nОтвечаешь одной репликой вслух: 4–16 слов, без кавычек и пояснений.`,
+    user,
+    schema: z.object({ line: z.string() }),
+    effort: 'low',
+    maxTokens: 800,
+  });
+  const s = data?.line?.trim();
+  return s && s.length <= max ? s : null;
 }
