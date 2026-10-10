@@ -183,3 +183,6 @@ body[data-game="menu"] .backdrop .art { position: absolute; inset: 0; opacity: .
 .lrules li { counter-increment: r; display: flex; align-items: center; gap: 1vmin; max-width: 34vmin; padding: 1vmin 1.6vmin; border-radius: 1.4vmin; background: rgba(255,255,255,.06); font-size: 1.7vmin; line-height: 1.3; }
 .lrules li::before { content: counter(r); flex: none; display: grid; place-items: center; width: 3.4vmin; height: 3.4vmin; border-radius: 50%; background: var(--a1); color: #fff; font-family: var(--display); font-size: 1.6vmin; }
 .lobby2 .need { text-align: center; font-size: 2vmin; color: var(--dim); }
+
+/* свой фон из public/assets/bg */
+.bg-art { position: absolute; inset: 0; z-index: 5; background: center / cover no-repeat; animation: rise .8s var(--ease) both; }

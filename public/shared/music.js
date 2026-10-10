@@ -3,6 +3,7 @@
    reveal (только подклад), win (громко), silence. */
 
 import { audio, bus, noise, mtof, running } from './audio.js';
+import { musicFile, buffer } from './assets.js';
 
 /* ---------- инструменты ---------- */
 function env(g, t, a, peak, d, sus, r, dur) {
@@ -306,6 +307,10 @@ class Player {
 
   play(styleName, mood = 'lobby') {
     const a = audio(); if (!a) return;
+    // своя запись вместо синтеза: public/assets/music/<игра>.mp3
+    const file = musicFile(styleName, mood);
+    if (file) return this.playFile(styleName, mood, file);
+    if (this.fileSrc) this.stopFile();
     if (styleName !== this.styleName) {
       this.fadeOut();
       this.styleName = styleName;
@@ -326,6 +331,33 @@ class Player {
 
   setMood(mood) { if (this.styleName) this.play(this.styleName, mood); }
 
+  /* петля из файла: громкость — по настроению, файл под настроение — если положили */
+  async playFile(styleName, mood, url) {
+    const a = audio();
+    if (this.timer) { clearInterval(this.timer); this.timer = null; this.fadeOut(); }
+    this.styleName = styleName;
+    this.mood = mood;
+    if (this.fileUrl !== url) {
+      this.stopFile();
+      this.fileUrl = url;
+      const buf = await buffer(url);
+      if (!buf || this.fileUrl !== url) return;
+      const g = a.createGain(); g.gain.value = 0.0001; g.connect(bus.music);
+      const src = a.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(g); src.start();
+      this.fileSrc = src; this.fileGain = g;
+    }
+    const level = Math.max(0.0001, MOOD[mood]?.gain ?? 1);
+    this.fileGain?.gain.setTargetAtTime(level, a.currentTime, 0.4);
+  }
+
+  stopFile() {
+    if (!this.fileSrc) return;
+    const a = audio(); const src = this.fileSrc, g = this.fileGain;
+    g.gain.setTargetAtTime(0.0001, a.currentTime, 0.3);
+    setTimeout(() => { try { src.stop(); g.disconnect(); } catch {} }, 1500);
+    this.fileSrc = null; this.fileGain = null; this.fileUrl = null;
+  }
+
   applyGain(sec = 0.5) {
     const a = audio();
     const g = Math.max(0.0001, MOOD[this.mood]?.gain ?? 1);
@@ -340,7 +372,7 @@ class Player {
     this.out = null;
   }
 
-  stop() { this.fadeOut(); this.styleName = null; clearInterval(this.timer); this.timer = null; }
+  stop() { this.fadeOut(); this.stopFile(); this.styleName = null; clearInterval(this.timer); this.timer = null; }
 
   tick() {
     const a = audio();

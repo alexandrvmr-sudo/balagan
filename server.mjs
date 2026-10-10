@@ -37,7 +37,23 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2',
+  '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.webp': 'image/webp', '.jpg': 'image/jpeg',
 };
+
+/* свои звуки, музыка и фоны: что лежит в public/assets/sfx, music и bg */
+async function assetManifest() {
+  const out = { sfx: {}, music: {}, bg: {} };
+  const ext = { sfx: /^([\w-]+)\.(mp3|ogg|wav|m4a)$/i, music: /^([\w-]+)\.(mp3|ogg|wav|m4a)$/i, bg: /^([\w-]+)\.(webp|png|jpe?g)$/i };
+  for (const kind of Object.keys(out)) {
+    let files = [];
+    try { files = await fsp.readdir(path.join(PUBLIC, 'assets', kind)); } catch {}
+    for (const f of files) {
+      const m = f.match(ext[kind]);
+      if (m) out[kind][m[1]] = `/assets/${kind}/${encodeURIComponent(f)}`;
+    }
+  }
+  return out;
+}
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -53,6 +69,8 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, 'image/svg+xml', svg, 'public, max-age=3600');
     } catch { return send(res, 500, 'text/plain', 'qr failed'); }
   }
+
+  if (p === '/assets/manifest.json') return json(res, await assetManifest());
 
   const tts = p.match(/^\/tts\/([a-f0-9]{20})\.mp3$/);
   if (tts) {

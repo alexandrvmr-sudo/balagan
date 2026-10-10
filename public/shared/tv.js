@@ -5,6 +5,7 @@ import { esc, $, byId, plural, fmt, ring, updateRing, store } from './core.js';
 import { avatar, useChars, charSvg, chars } from './chars.js';
 import { unlock, setMusicLevel, getMusicLevel, setReverb, setMaster } from './audio.js';
 import { ambience } from './ambience.js';
+import { assetsReady, bgFile } from './assets.js';
 import { music } from './music.js';
 import { sfx } from './sfx.js';
 import { voice } from './voice.js';
@@ -140,13 +141,31 @@ async function load(id) {
   return mods[id];
 }
 
+/* свой фон из public/assets/bg — поверх нарисованного кодом */
+let bgShown = null;
+function applyBg(g) {
+  if (bgShown === g) return;
+  bgShown = g;
+  assetsReady().then(() => {
+    const url = bgFile(g);
+    if (!url || document.body.dataset.game !== g || document.querySelector('.bg-art')) return;
+    const el = document.createElement('div');
+    el.className = 'bg-art';
+    el.dataset.transient = '1';
+    el.style.backgroundImage = `url("${url}")`;
+    $('#backdrop')?.appendChild(el);
+  });
+}
+
 function setTheme(id) {
   const g = id || 'menu';
-  if (document.body.dataset.game === g) return;
+  if (document.body.dataset.game === g) return applyBg(g);
   // следы прошлой игры: классы на body и временные слои
   document.body.className = '';
   for (const el of document.querySelectorAll('[data-transient]')) el.remove();
   document.body.dataset.game = g;
+  bgShown = null;
+  applyBg(g);
   let link = $('#gamecss');
   if (id) {
     if (!link) { link = document.createElement('link'); link.id = 'gamecss'; link.rel = 'stylesheet'; document.head.appendChild(link); }

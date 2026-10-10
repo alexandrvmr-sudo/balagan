@@ -1,6 +1,7 @@
 /* Звуковые эффекты — синтез, без файлов */
 
 import { audio, bus, noise, mtof, running } from './audio.js';
+import { sfxFile, playFile } from './assets.js';
 
 function tone(f, dur, { type = 'triangle', gain = 0.2, at = 0, slide = 0, attack = 0.01 } = {}) {
   const a = audio(); if (!running()) return;
@@ -132,5 +133,12 @@ const FX = {
   buzz: () => { tone(120, 0.5, { type: 'sawtooth', gain: 0.05 }); tone(240, 0.5, { type: 'square', gain: 0.02 }); },
 };
 
-export function sfx(name) { try { FX[name]?.(); } catch {} }
+/* свой файл из public/assets/sfx — если есть, иначе синтез */
+export function sfx(name) {
+  try {
+    const file = sfxFile(name);
+    if (file) { if (running()) playFile(file); return; }
+    FX[name]?.();
+  } catch {}
+}
 export const SFX_NAMES = Object.keys(FX);
