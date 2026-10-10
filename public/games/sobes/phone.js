@@ -16,7 +16,7 @@ export default {
     if (S.compose) return compose(S, ui);
     if (S.vote) return vote(S, ui);
     if (S.phase === 'winner') return winner(S, ui);
-    ui.wait({ ice: '💬', compose: '🧲', voting: '👀', reveal: '📋', scores: '📊' }[S.phase] || '💼', S.wait || 'Смотри на экран');
+    ui.wait({ toon: '📺', ice: '💬', compose: '🧲', voting: '👀', reveal: '📋', scores: '📊' }[S.phase] || '💼', S.wait || 'Смотри на экран');
   },
 };
 
@@ -48,7 +48,7 @@ function compose(S, ui) {
     ui.main.innerHTML = `
       <div class="sb-pq">${ui.esc(S.compose.q)}</div>
       <div class="sb-line" id="line">${line.map((i) => tile(i, true)).join('')}</div>
-      <div class="tagline">слова других кандидатов · цвет — чьё слово</div>
+      <div class="tagline">магнитики других кандидатов · цвет — чьё слово</div>
       <div class="sb-bank" id="bank">${order.map((i) => tile(i, false)).join('')}</div>`;
     ui.foot.innerHTML = `
       <div class="row"><button class="btn ghost small" id="mix">Перемешать</button><button class="btn ghost small" id="clr">Очистить</button></div>

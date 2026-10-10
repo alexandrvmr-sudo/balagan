@@ -1,7 +1,7 @@
 /* «Собеседование» — HR-нейросеть Анжела задаёт вопросы, а отвечать можно только чужими словами.
    Сначала разогрев: все пишут ответы на простые вопросы. Потом слова перемешиваются,
    и каждый собирает ответ на собеседовании из чужих слов, как магнитики на холодильнике.
-   Очки — автору ответа и тем, чьи слова он взял. */
+   Очки — автору ответа и тем, чьи слова он взял. Между раундами — мультвставки из жизни офиса. */
 
 import { data, Deck, shuffle, pick, rnd, secs, clean, tally, playing, online } from '../lib.mjs';
 
@@ -11,9 +11,10 @@ const T = {
   ice: secs('BALAGAN_SOBES_ICE', 60, 30),
   ice2: secs('BALAGAN_SOBES_ICE2', 35, 20),
   compose: secs('BALAGAN_SOBES_COMPOSE', 80, 40),
-  vote: secs('BALAGAN_SOBES_VOTE', 20, 12),
-  reveal: secs('BALAGAN_SOBES_REVEAL', 7, 5),
-  scores: secs('BALAGAN_SOBES_SCORES', 7, 5),
+  vote: secs('BALAGAN_SOBES_VOTE', 22, 12),
+  reveal: secs('BALAGAN_SOBES_REVEAL', 9, 5),
+  scores: secs('BALAGAN_SOBES_SCORES', 9, 5),
+  toon: secs('BALAGAN_SOBES_TOON', 9, 3),
 };
 const VALUE = [1000, 1500, 2000];
 const ANGELA = 'angela';
@@ -21,7 +22,6 @@ const MIN_WORDS = 4;
 const MAX_TILES = 14;
 
 const LINES = {
-  ice: 'Здравствуйте. Я Анжела, нейросеть отдела кадров. Для начала — пара простых вопросов. Отвечайте развёрнуто, ваши слова мне ещё пригодятся.',
   ice2: 'Ещё немного о вас. Слов много не бывает.',
   compose: ['Отвечайте на вопрос. Чужими словами.', 'Собирайте ответ из того, что есть.', 'Анжела ждёт ваш ответ.'],
   win: ['Анжела довольна.', 'Хороший кандидат.', 'Записываю в личное дело.'],
@@ -36,7 +36,8 @@ export default {
   maxPlayers: 10,
   tags: ['Слова', 'Шутки'],
   ratings: ['family', 'adult'],
-  minutes: 20,
+  chars: ['stazher', 'buh', 'admin', 'sales', 'kurier', 'ohrana', 'hr', 'market', 'sekretar', 'director', 'uborka', 'dizayner'],
+  minutes: 22,
   intro: 'Собеседование. Отвечайте на вопросы отдела кадров. Но только чужими словами.',
   rules: [
     'Разогрев: ответь на пару простых вопросов, минимум четыре слова',
@@ -49,8 +50,11 @@ export default {
   init(room) {
     room.state = {
       round: 0,
-      ice: new Deck(PACK.icebreakers),
-      q: PACK.rounds.map((r) => new Deck(r.questions)),
+      level: 'family',
+      pack: null,
+      ice: null,
+      q: [],
+      toon: null,
       bank: [],             // { w, by } — все слова из разогрева
       iceTasks: {},         // playerId → [{ q, done }]
       matches: [],          // { q, authors:[id,id|ANGELA], banks:{id:[tiles]}, answers:{id:[idx]}, votes }
@@ -60,7 +64,14 @@ export default {
     };
   },
 
-  start(room) { startIce(room, 2, T.ice, LINES.ice); },
+  start(room) {
+    const s = room.state;
+    s.level = room.level;
+    s.pack = bank(s.level);
+    s.ice = new Deck(s.pack.icebreakers);
+    s.q = s.pack.rounds.map((r) => new Deck(r.questions));
+    toon(room, 'boot', () => startIce(room, 2, T.ice));
+  },
 
   onPlayerJoin(room, p) { p.audience = true; },
 
@@ -115,7 +126,8 @@ export default {
 
   viewTV(room) {
     const s = room.state;
-    const base = { round: s.round, rounds: PACK.rounds.length, roundTitle: PACK.rounds[s.round - 1]?.title || '' };
+    const base = { round: s.round, rounds: PACK.rounds.length, roundTitle: s.pack?.rounds[s.round - 1]?.title || '', level: s.level };
+    if (room.phase === 'toon') return { ...base, toon: s.toon };
     if (room.phase === 'ice') {
       return { ...base, progress: playing(room).map((p) => ({ id: p.id, done: (s.iceTasks[p.id] || []).filter((t) => t.done).length, need: (s.iceTasks[p.id] || []).length })), words: s.bank.length };
     }
@@ -136,6 +148,7 @@ export default {
   viewPlayer(room, p) {
     const s = room.state;
     const my = { round: s.round };
+    if (room.phase === 'toon') return { ...my, wait: { boot: 'Анжела загружается…', coffee: 'Кофе-брейк', shredder: 'Анжела наводит порядок в личных делах', promo: 'Печатается приказ…' }[s.toon?.kind] || 'Смотри на экран' };
     if (room.phase === 'ice') {
       if (p.audience) return { ...my, wait: 'Кандидаты рассказывают о себе' };
       const tasks = s.iceTasks[p.id] || [];
@@ -169,7 +182,7 @@ export default {
     const s = room.state;
     const moves = [];
     if (room.phase === 'ice' && !b.audience) {
-      (s.iceTasks[b.id] || []).forEach((t, n) => { if (!t.done) moves.push({ delay: rnd(2, 6) + n * 2, msg: { a: 'ice', n, text: pick(PACK.botIce) } }); });
+      (s.iceTasks[b.id] || []).forEach((t, n) => { if (!t.done) moves.push({ delay: rnd(2, 6) + n * 2, msg: { a: 'ice', n, text: pick(s.pack.botIce) } }); });
     }
     if (room.phase === 'compose' && !b.audience) {
       const m = s.matches.find((x) => x.authors.includes(b.id));
@@ -189,6 +202,31 @@ export default {
 };
 
 /* =================== механика =================== */
+
+/* набор по уровню: в 18+ вопросы и связки свои, но немного обычных для разгона */
+function bank(level) {
+  if (level !== 'adult') return { icebreakers: PACK.icebreakers, rounds: PACK.rounds, glue: PACK.glue, jobs: PACK.jobs, botIce: PACK.botIce };
+  const A = PACK.adult;
+  return {
+    icebreakers: [...A.icebreakers, ...shuffle(PACK.icebreakers).slice(0, 8)],
+    rounds: PACK.rounds.map((r, i) => ({ title: A.rounds[i]?.title || r.title, questions: [...(A.rounds[i]?.questions || []), ...shuffle(r.questions).slice(0, 4)] })),
+    glue: [...PACK.glue, ...A.glue],
+    jobs: A.jobs,
+    botIce: [...A.botIce, ...shuffle(PACK.botIce).slice(0, 4)],
+  };
+}
+
+/* мультвставка: короткая сценка на экране, Анжела говорит, потом — дальше по игре */
+function toon(room, kind, next) {
+  const s = room.state;
+  const leader = [...playing(room)].sort((a, b) => b.score - a.score)[0];
+  s.toon = { kind, name: leader?.name || '' };
+  room.phase = 'toon';
+  const line = PACK.toons[kind];
+  room.say(line[s.level] || line.family);
+  room.setTimer(T.toon + (kind === 'boot' ? 3 : 0), next);
+  room.push();
+}
 
 /* слова и знаки препинания из ответа игрока */
 function words(text) {
@@ -212,7 +250,7 @@ function startIce(room, n, seconds, say) {
   const s = room.state;
   for (const p of playing(room)) s.iceTasks[p.id] = Array.from({ length: n }, () => ({ q: s.ice.draw(), done: false }));
   room.phase = 'ice';
-  room.say(say);
+  if (say) room.say(say);
   room.sound('round');
   room.setTimer(seconds, () => startRound(room, s.round + 1));
   room.push();
@@ -230,7 +268,7 @@ function bankFor(room, pid, q) {
     seen.add(t.w); tiles.push({ w: t.w, by: t.by });
   }
   for (const w of words(q)) if (!seen.has(w)) { seen.add(w); tiles.push({ w, by: null }); }
-  for (const w of PACK.glue) if (!seen.has(w)) { seen.add(w); tiles.push({ w, by: null }); }
+  for (const w of s.pack.glue) if (!seen.has(w)) { seen.add(w); tiles.push({ w, by: null }); }
   return tiles;
 }
 
@@ -258,7 +296,7 @@ function startRound(room, n) {
   }
   room.phase = 'compose';
   room.sound('open');
-  room.say(`${PACK.rounds[n - 1].title}. ${pick(LINES.compose)}`);
+  room.say(`${s.pack.rounds[n - 1].title}. ${pick(LINES.compose)}`);
   room.setTimer(T.compose, () => toVoting(room));
   room.push();
 }
@@ -320,16 +358,18 @@ function award(room, id, pts) {
 function afterRound(room) {
   const s = room.state;
   if (s.round >= PACK.rounds.length) {
-    s.job = pick(PACK.jobs);
-    room.phase = 'winner';
-    room.clearTimer();
-    room.sound('win');
-    const top = [...playing(room)].sort((a, b) => b.score - a.score)[0];
-    if (top) room.say(`Поздравляю, ${top.name}. Вы приняты на должность: ${s.job}.`);
-    return room.push();
+    s.job = pick(s.pack.jobs);
+    return toon(room, 'promo', () => {
+      room.phase = 'winner';
+      room.clearTimer();
+      room.sound('win');
+      const top = [...playing(room)].sort((a, b) => b.score - a.score)[0];
+      if (top) room.say(`Поздравляю, ${top.name}. Вы приняты на должность: ${s.job}.`);
+      room.push();
+    });
   }
   room.phase = 'scores';
   room.sound('scores');
-  room.setTimer(T.scores, () => startIce(room, 1, T.ice2, LINES.ice2));
+  room.setTimer(T.scores, () => toon(room, s.round === 1 ? 'coffee' : 'shredder', () => startIce(room, 1, T.ice2, LINES.ice2)));
   room.push();
 }
