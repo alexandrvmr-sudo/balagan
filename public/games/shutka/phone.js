@@ -1,11 +1,15 @@
 /* Шутка на двоих — телефон */
 
 const MEDALS = ['gold', 'silver', 'bronze'];
+const LEVEL = { adult: '18+', hard: 'ЖЕСТЬ' };
+const blank = (ui, t) => ui.esc(t).replace(/_{2,}/, '<span class="blank"></span>');
+const lvl = (S) => (LEVEL[S.rating] ? `<div class="sh-lvlp l-${S.rating}">${LEVEL[S.rating]}</div>` : '');
 const ICON = { gold: '🥇', silver: '🥈', bronze: '🥉' };
 let picks = {};
 
 export default {
   key(S) {
+    if (S.intro) return `i:${S.wait}`;
     if (S.task) return `t:${S.task.m}`;
     if (S.triple) return 'triple';
     if (S.vote) return `v:${S.vote.prompt}:${!!S.votedFor}`;
@@ -24,6 +28,8 @@ export default {
   },
 
   render(S, ui) {
+    document.body.dataset.lvl = S.rating || 'family';
+    if (S.intro) return intro(S, ui);
     if (S.task) return task(S, ui);
     if (S.triple) return triple(S, ui);
     if (S.vote) return vote(S, ui);
@@ -34,10 +40,20 @@ export default {
   },
 };
 
+function intro(S, ui) {
+  ui.main.innerHTML = `
+    <div class="sh-tip">${S.final ? 'последний раунд' : 'приготовься'}</div>
+    <div class="sh-bigr">${S.final ? 'ФИНАЛ' : S.round}</div>
+    <div class="sh-tip">${S.final ? 'одна затравка, три ответа' : 'сейчас прилетят две затравки'}</div>
+    ${lvl(S)}`;
+  ui.foot.innerHTML = '';
+  ui.buzz(60);
+}
+
 function task(S, ui) {
   ui.main.innerHTML = `
     <div class="tagline">затравка ${S.task.no} из ${S.task.of} · ${S.value} очков</div>
-    <div class="sh-p">${ui.esc(S.task.prompt)}</div>
+    <div class="sh-p">${blank(ui, S.task.prompt)}</div>
     <textarea id="ans" maxlength="90" placeholder="впиши самое смешное…" autocomplete="off" autocapitalize="sentences" enterkeyhint="send"></textarea>
     <div class="count" id="cnt">0 / 90</div>`;
   ui.foot.innerHTML = `<button class="btn" id="send">Готово</button><button class="btn ghost small" id="help">Выручай! (подставить готовый ответ)</button>`;
@@ -59,7 +75,7 @@ function task(S, ui) {
 function triple(S, ui) {
   ui.main.innerHTML = `
     <div class="tagline">финал · три ответа · 3000 очков</div>
-    <div class="sh-p">${ui.esc(S.triple.prompt)}</div>
+    <div class="sh-p">${blank(ui, S.triple.prompt)}</div>
     ${[1, 2, 3].map((n) => `<input id="t${n}" maxlength="50" placeholder="${n}." autocomplete="off">`).join('')}`;
   ui.foot.innerHTML = `<button class="btn" id="send">Ударить!</button>`;
   setTimeout(() => ui.main.querySelector('#t1').focus(), 150);
@@ -73,14 +89,16 @@ function triple(S, ui) {
 
 function vote(S, ui) {
   const voted = S.votedFor;
+  const [a, b] = S.vote.options;
+  const btn = (o) => `<button class="sh-bubbtn ${voted === o.id ? 'on' : voted ? 'off' : ''}" data-o="${o.id}">${ui.esc(o.text)}</button>`;
   ui.main.innerHTML = `
-    <div class="tagline">что смешнее?</div>
-    <div class="sh-p" style="font-size:18px">${ui.esc(S.vote.prompt)}</div>
-    <div class="opts">${S.vote.options.map((o) => `<button class="opt ${voted === o.id ? 'on' : voted ? 'off' : ''}" data-o="${o.id}">${ui.esc(o.text)}</button>`).join('')}</div>`;
+    <div class="tagline">что смешнее? жми!</div>
+    <div class="sh-p" style="font-size:17px">${blank(ui, S.vote.prompt)}</div>
+    <div class="opts">${btn(a)}<div class="sh-or">или</div>${b ? btn(b) : ''}</div>`;
   ui.foot.innerHTML = voted ? '<div class="sub" style="text-align:center">голос принят</div>' : '';
   if (voted) return;
-  for (const b of ui.main.querySelectorAll('.opt')) {
-    b.onclick = () => { ui.buzz(40); ui.act({ a: 'vote', for: b.dataset.o }); };
+  for (const el of ui.main.querySelectorAll('.sh-bubbtn')) {
+    el.onclick = () => { ui.buzz(40); ui.act({ a: 'vote', for: el.dataset.o }); };
   }
 }
 
@@ -91,7 +109,7 @@ function medals(S, ui) {
     const next = MEDALS.find((m) => !picks[m]);
     ui.main.innerHTML = `
       <div class="tagline">раздай медали · ${next ? `сейчас: ${ICON[next]}` : 'все розданы'}</div>
-      <div class="sh-p" style="font-size:17px">${ui.esc(S.medals.prompt)}</div>
+      <div class="sh-p" style="font-size:17px">${blank(ui, S.medals.prompt)}</div>
       <div class="opts">${S.medals.options.map((o) => {
         const got = MEDALS.find((m) => picks[m] === o.id);
         return `<button class="medal-opt ${got ? 'on' : ''}" data-o="${o.id}"><b>${got ? ICON[got] : '·'}</b><span>${o.three.map(ui.esc).join(' · ')}</span></button>`;

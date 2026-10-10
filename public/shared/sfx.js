@@ -23,6 +23,23 @@ function hiss(dur, { at = 0, gain = 0.2, type = 'bandpass', from = 800, to = 400
   n.connect(f).connect(g).connect(bus.sfx); n.start(t); n.stop(t + dur + 0.05);
 }
 
+/* голос толпы: пила через полосовой фильтр, тянется и плывёт */
+function crowd(n, dur, { at = 0, from = 180, to = 320, slide = 0.85, gain = 0.02, band = 700, attack = 0.2 } = {}) {
+  const a = audio(); if (!running()) return;
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = band; f.Q.value = 1.6;
+  const g = a.createGain(); g.gain.value = 1;
+  f.connect(g).connect(bus.sfx);
+  for (let i = 0; i < n; i++) {
+    const t = a.currentTime + at + Math.random() * 0.15;
+    const o = a.createOscillator(); const e = a.createGain();
+    o.type = 'sawtooth';
+    const f0 = from + Math.random() * (to - from);
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * slide, t + dur);
+    e.gain.setValueAtTime(0.0001, t); e.gain.linearRampToValueAtTime(gain, t + attack); e.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(e).connect(f); o.start(t); o.stop(t + dur + 0.05);
+  }
+}
+
 const chord = (notes, dur, opts = {}) => notes.forEach((m, i) => tone(mtof(m), dur, { ...opts, at: (opts.at || 0) + i * (opts.roll || 0) }));
 
 const FX = {
@@ -87,6 +104,25 @@ const FX = {
   boo: () => { for (let i = 0; i < 10; i++) tone(110 + Math.random() * 40, 1.2, { type: 'sawtooth', gain: 0.02, at: Math.random() * 0.3, attack: 0.2, slide: 0.85 }); },
   whoosh2: () => hiss(0.45, { from: 200, to: 6000, gain: 0.18, q: 0.6 }),
   drip: () => { tone(1400, 0.12, { type: 'sine', gain: 0.12, slide: 0.45 }); tone(900, 0.1, { type: 'sine', gain: 0.06, at: 0.09, slide: 0.6 }); },
+  /* телешоу */
+  sting: () => {
+    chord([55, 62, 67, 71, 74], 0.7, { type: 'sawtooth', gain: 0.06, attack: 0.005 });
+    tone(55, 0.4, { type: 'sine', gain: 0.4, slide: 0.5 });
+    hiss(1.4, { type: 'highpass', from: 5000, to: 8000, gain: 0.12, at: 0.02 });
+  },
+  cymbal: () => hiss(1.6, { type: 'highpass', from: 6000, to: 9000, gain: 0.14 }),
+  boing: () => { tone(160, 0.35, { type: 'sine', gain: 0.25, slide: 3.2 }); tone(500, 0.35, { type: 'sine', gain: 0.12, at: 0.18, slide: 0.35 }); },
+  airhorn: () => { for (let k = 0; k < 3; k++) { const at = k * 0.28; [440, 554, 659].forEach((f) => tone(f, k === 2 ? 0.6 : 0.2, { type: 'sawtooth', gain: 0.045, at, attack: 0.01 })); } },
+  ooh: () => crowd(16, 1.4, { from: 200, to: 340, slide: 0.8, gain: 0.03, band: 650, attack: 0.25 }),
+  aww: () => crowd(16, 1.3, { from: 260, to: 360, slide: 0.65, gain: 0.03, band: 900, attack: 0.15 }),
+  cheer: () => {
+    crowd(18, 1.6, { from: 300, to: 520, slide: 1.5, gain: 0.025, band: 1200, attack: 0.1 });
+    for (let i = 0; i < 50; i++) hiss(0.06, { at: Math.random() * 1.8, from: 1200 + Math.random() * 800, to: 2400, gain: 0.04 + Math.random() * 0.05, q: 0.8 });
+  },
+  scribble: () => { for (let i = 0; i < 5; i++) hiss(0.07, { at: i * 0.08, from: 2500 + Math.random() * 2000, to: 4000, gain: 0.05, q: 4 }); },
+  swish: () => hiss(0.22, { from: 900, to: 7000, gain: 0.16, q: 1.4 }),
+  tada: () => { chord([60, 64, 67], 0.15, { type: 'square', gain: 0.06 }); chord([72, 76, 79, 84], 0.9, { at: 0.16, type: 'sawtooth', gain: 0.07, roll: 0.02 }); },
+  thud: () => { tone(70, 0.3, { type: 'sine', gain: 0.45, slide: 0.6 }); hiss(0.1, { from: 600, to: 200, gain: 0.12, type: 'lowpass' }); },
   buzz: () => { tone(120, 0.5, { type: 'sawtooth', gain: 0.05 }); tone(240, 0.5, { type: 'square', gain: 0.02 }); },
 };
 

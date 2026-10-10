@@ -3,6 +3,7 @@
    Запуск: npm run smoke */
 
 process.env.BALAGAN_TEST = '1';
+process.env.BALAGAN_TTS = '0';
 delete process.env.ANTHROPIC_API_KEY;
 
 const SPEED = 50;
@@ -19,12 +20,13 @@ process.on('unhandledRejection', (e) => errors.push(e));
 const origError = console.error;
 console.error = (...a) => { errors.push(new Error(a.map(String).join(' '))); };
 
-function play(game, n, { drop = false } = {}) {
+function play(game, n, { drop = false, rating = 'family' } = {}) {
   return new Promise((resolve) => {
     const room = new Room();
     room.code = 'TEST';
     for (let i = 0; i < n; i++) room.addPlayer(`Бот ${i + 1}`, { bot: true });
     room.setGame(game);
+    room.rating = rating;
     assignRoles(room, game.maxPlayers);
     const phases = new Set();
     const started = Date.now();
@@ -52,16 +54,17 @@ function play(game, n, { drop = false } = {}) {
 let fail = 0;
 for (const g of GAMES) {
   const counts = [...new Set([g.minPlayers, Math.min(g.maxPlayers, 5), g.maxPlayers])];
-  for (const n of counts) {
-    for (const drop of [false, true]) {
-      if (drop && n < 3) continue;
-      const before = errors.length;
-      const r = await play(g, n, { drop });
-      const bad = r.how !== 'winner' || errors.length > before;
-      if (bad) fail++;
-      console.log(`${bad ? '✗' : '✓'} ${g.title.padEnd(16)} ${String(n).padStart(2)} игроков${drop ? ' + отвал' : '        '}  ${r.how.padEnd(7)} ${String(r.ms).padStart(5)} мс  фаз: ${r.phases.length}`);
-      for (const e of errors.slice(before)) console.log('    ', String(e?.stack || e).split('\n').slice(0, 3).join('\n     '));
-    }
+  const runs = counts.flatMap((n) => [false, true].filter((d) => !(d && n < 3)).map((drop) => ({ n, drop, rating: 'family' })));
+  // каждый уровень контента — ещё по прогону
+  for (const rating of (g.ratings || []).filter((r) => r !== 'family')) runs.push({ n: Math.min(g.maxPlayers, 5), drop: false, rating });
+  for (const { n, drop, rating } of runs) {
+    const before = errors.length;
+    const r = await play(g, n, { drop, rating });
+    const bad = r.how !== 'winner' || errors.length > before;
+    if (bad) fail++;
+    const tag = rating !== 'family' ? ` ${rating}` : drop ? ' + отвал' : '';
+    console.log(`${bad ? '✗' : '✓'} ${g.title.padEnd(16)} ${String(n).padStart(2)} игроков${tag.padEnd(8)}  ${r.how.padEnd(7)} ${String(r.ms).padStart(5)} мс  фаз: ${r.phases.length}`);
+    for (const e of errors.slice(before)) console.log('    ', String(e?.stack || e).split('\n').slice(0, 3).join('\n     '));
   }
 }
 console.log(fail ? `\n${fail} прогонов с ошибками` : '\nвсе игры доигрываются без ошибок');

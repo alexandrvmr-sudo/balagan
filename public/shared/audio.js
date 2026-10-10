@@ -10,7 +10,7 @@ export function audio() {
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.2;
-    bus.master = ctx.createGain(); bus.master.gain.value = 0.9;
+    bus.master = ctx.createGain(); bus.master.gain.value = masterLevel;
     bus.music = ctx.createGain(); bus.music.gain.value = musicLevel;
     bus.sfx = ctx.createGain(); bus.sfx.gain.value = 0.8;
     bus.voice = ctx.createGain(); bus.voice.gain.value = 1.15;
@@ -35,6 +35,13 @@ export function setMusicLevel(v) {
   if (bus.music) bus.music.gain.setTargetAtTime(ducked ? v * 0.3 : v, ctx.currentTime, 0.15);
 }
 export const getMusicLevel = () => musicLevel;
+
+/* общий уровень: 0 — полная тишина, включая эффекты и атмосферу */
+let masterLevel = 0.9;
+export function setMaster(v) {
+  masterLevel = v;
+  if (bus.master) bus.master.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
+}
 
 /* пока ведущий говорит — музыка тише */
 export function duck(on) {

@@ -3,7 +3,7 @@
 import { connect } from './net.js';
 import { esc, $, byId, plural, fmt, ring, updateRing, store } from './core.js';
 import { avatar, useChars, charSvg, chars } from './chars.js';
-import { unlock, setMusicLevel, getMusicLevel, setReverb } from './audio.js';
+import { unlock, setMusicLevel, getMusicLevel, setReverb, setMaster } from './audio.js';
 import { ambience } from './ambience.js';
 import { music } from './music.js';
 import { sfx } from './sfx.js';
@@ -53,14 +53,16 @@ if (params.has('nosplash')) { splash.remove(); started = true; addEventListener(
 else splash.addEventListener('click', start);
 
 /* ---------- звук: M — музыка, V — голос, F — полный экран ---------- */
-let soundMode = Number(store.get('balagan.sound') ?? 0); // 0 всё, 1 без музыки, 2 тишина
+// 0 всё, 1 без музыки, 2 тишина; ?mute=1 — тишина без запоминания (для проверок)
+let soundMode = params.has('mute') ? 2 : Number(store.get('balagan.sound') ?? 0);
 function applyAudioPrefs() {
   setMusicLevel(soundMode === 0 ? 0.55 : 0);
+  setMaster(soundMode === 2 ? 0 : 0.9);
   voice.enabled = soundMode < 2;
   muteBtn.textContent = ['🔊', '🎙️', '🔇'][soundMode];
   muteBtn.title = ['звук и голос', 'только голос', 'тишина'][soundMode];
 }
-muteBtn.onclick = (e) => { e.stopPropagation(); soundMode = (soundMode + 1) % 3; store.set('balagan.sound', soundMode); applyAudioPrefs(); };
+muteBtn.onclick = (e) => { e.stopPropagation(); soundMode = (soundMode + 1) % 3; if (!params.has('mute')) store.set('balagan.sound', soundMode); applyAudioPrefs(); };
 addEventListener('keydown', (e) => {
   if (e.key === 'f' || e.key === 'F' || e.key === 'а' || e.key === 'А') document.documentElement.requestFullscreen?.();
   if (e.key === 'm' || e.key === 'M' || e.key === 'ь') muteBtn.click();

@@ -8,12 +8,13 @@ const PACK = data('shutka.json');
 
 const ROUNDS = Math.max(2, Math.min(4, Number(process.env.BALAGAN_ROUNDS) || 3));
 const T = {
+  intro: secs('BALAGAN_RINTRO', 6, 2),
   write: secs('BALAGAN_WRITE', 80, 35),
   final: secs('BALAGAN_FINAL', 90, 40),
   vote: secs('BALAGAN_VOTE', 20, 12),
   fvote: secs('BALAGAN_FVOTE', 30, 15),
-  reveal: secs('BALAGAN_REVEAL', 7, 5),
-  scores: secs('BALAGAN_SCORES', 8, 5),
+  reveal: secs('BALAGAN_REVEAL', 9, 5),
+  scores: secs('BALAGAN_SCORES', 9, 5),
 };
 const value = (round) => (round >= ROUNDS ? 3000 : round * 1000);
 const MEDAL = { gold: 3, silver: 2, bronze: 1 };
@@ -21,12 +22,22 @@ const MEDAL = { gold: 3, silver: 2, bronze: 1 };
 const HOST = 'Ты — Жанна, бойкая ведущая телешоу «Шутка на двоих». Тёплая, ироничная, подкалываешь по-доброму.';
 
 const LINES = {
-  round: ['Раунд первый! Каждому — по две затравки.', 'Раунд второй! Очки удваиваются.', 'Ещё раунд!'],
-  final: ['Финал! Тройной удар: три ответа на одну затравку.'],
-  shutout: ['Шутка! Все голоса — одному!', 'Разгром! Зал единогласен.', 'Чистая победа!'],
-  tie: ['Ничья! Оба хороши.', 'Поровну. Зал не смог выбрать.'],
-  silent: ['Кто-то промолчал — и проиграл.', 'Молчание — не всегда золото.'],
-  win: ['Отличный ответ!', 'Зал сказал своё слово.', 'Вот это попадание!'],
+  round: [
+    ['Раунд первый! Каждому по две затравки. Пишите смешно, пишите быстро!', 'Поехали! Первый раунд. Две затравки и девяносто секунд на позор.'],
+    ['Второй раунд! Очки удваиваются, совесть — нет.', 'Раунд два! Ставки выше, планка ниже.'],
+    ['Ещё раунд! Зал разогрет, отступать некуда.'],
+  ],
+  final: ['Финал! Тройной удар. Одна затравка, три ответа, медали за смелость.', 'Финал! Три ответа на одну затравку. Зал раздаёт золото, серебро и бронзу.'],
+  level: {
+    adult: ['Включён режим восемнадцать плюс. Детей — спать, бабушку — в другую комнату.', 'Сегодня восемнадцать плюс. Краснеть можно, отказываться нельзя.'],
+    hard: ['Режим «Жесть». Ведущая снимает с себя всякую ответственность.', 'Вы выбрали «Жесть». Я предупреждала маму, что так будет.'],
+  },
+  shutout: ['Шутка! Все голоса — одному!', 'Разгром! Зал единогласен.', 'Это нокаут. Соперник, вставай, если можешь.', 'Чистая победа! Ни одного голоса против.'],
+  tie: ['Ничья! Оба хороши.', 'Поровну. Зал не смог выбрать.', 'Ничья! Делите славу пополам.'],
+  close: ['Один голос решил всё!', 'На волоске! Почти ничья.'],
+  silent: ['Кто-то промолчал — и проиграл.', 'Тишина в эфире. Оператор, дайте звук!', 'Молчание — не всегда золото.'],
+  safety: ['Выручалочка сработала, но зал всё видел.'],
+  win: ['Отличный ответ!', 'Зал сказал своё слово.', 'Вот это попадание!', 'Аплодисменты автору!', 'Публика выбрала. Публика всегда права.'],
 };
 
 export default {
@@ -52,9 +63,10 @@ export default {
       round: 0,
       total: ROUNDS,
       topic: '',
-      deck: new Deck(PACK.prompts),
-      finalDeck: new Deck(PACK.final),
-      safety: new Deck(PACK.safety),
+      level: 'family',
+      deck: null,
+      finalDeck: null,
+      safety: null,
       matches: [],
       idx: 0,
       quip: null,
@@ -64,6 +76,12 @@ export default {
   },
 
   async start(room) {
+    const s = room.state;
+    s.level = room.level;
+    const b = bank(s.level);
+    s.deck = new Deck(b.prompts);
+    s.finalDeck = new Deck(b.final);
+    s.safety = new Deck(b.safety);
     if (aiEnabled) await cook(room);
     startRound(room, 1);
   },
@@ -139,7 +157,7 @@ export default {
   /* ---------- экран ---------- */
   viewTV(room) {
     const s = room.state;
-    const base = { round: s.round, total: s.total, value: value(s.round), note: s.note, topic: s.topic, final: s.round >= s.total };
+    const base = { round: s.round, total: s.total, value: value(s.round), note: s.note, topic: s.topic, final: s.round >= s.total, level: s.level };
     const m = s.matches[s.idx];
 
     if (room.phase === 'writing') {
@@ -153,7 +171,7 @@ export default {
       };
     }
     if (room.phase === 'reveal' && m) {
-      return { ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, prompt: m.prompt, result: m.result, quip: s.quip };
+      return { ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, prompt: m.prompt, result: m.result, quip: s.quip, order: m.authors };
     }
     if (room.phase === 'scores' || room.phase === 'winner') return { ...base, gains: s.gains };
     return base;
@@ -166,6 +184,7 @@ export default {
 
     if (room.phase === 'lobby') return { topic: s.topic, ai: aiEnabled };
     if (room.phase === 'cooking') return { ...my, wait: 'Придумываем затравки под вашу компанию…' };
+    if (room.phase === 'roundIntro') return { ...my, wait: my.final ? 'Финал! Тройной удар' : `Раунд ${s.round}`, intro: true };
 
     if (room.phase === 'writing') {
       if (p.audience) return { ...my, wait: 'Игроки пишут шутки — голосовать будешь ты' };
@@ -243,6 +262,28 @@ function afterWrite(room) {
   if (everyone) { room.clearTimer(); toVoting(room); }
 }
 
+/* колода по уровню: своё — основа, чуть мягкого для разгона */
+function bank(level) {
+  const take = (list, n) => shuffle(list).slice(0, n);
+  if (level === 'adult') return {
+    prompts: [...PACK.adult.prompts, ...take(PACK.prompts, 25)],
+    final: [...PACK.adult.final, ...take(PACK.final, 4)],
+    safety: [...PACK.adult.safety, ...take(PACK.safety, 10)],
+  };
+  if (level === 'hard') return {
+    prompts: [...PACK.hard.prompts, ...take(PACK.adult.prompts, 25), ...take(PACK.prompts, 8)],
+    final: [...PACK.hard.final, ...take(PACK.adult.final, 5)],
+    safety: [...PACK.hard.safety, ...take(PACK.adult.safety, 12)],
+  };
+  return { prompts: PACK.prompts, final: PACK.final, safety: PACK.safety };
+}
+
+const LEVEL_AI = {
+  family: 'Уровень: обычный. Без пошлости, можно показывать бабушке.',
+  adult: 'Уровень: 18+. Пошлые намёки, свидания, секс, бывшие, алкоголь, неловкие ситуации — смело, но без мата и без натурализма. Никаких несовершеннолетних.',
+  hard: 'Уровень: «Жесть». Чёрный юмор, кринж, туалетный юмор, похороны, морги, ад, мерзкая еда, пошлость. Без мата, без травли групп людей, без суицида, без насилия над детьми и животными.',
+};
+
 /* ИИ придумывает затравки под компанию */
 async function cook(room) {
   const s = room.state;
@@ -255,7 +296,8 @@ async function cook(room) {
 Хорошая затравка: 4–12 слов, конкретная, неожиданная, допускает десятки разных ответов.
 Типы: «худшее название для…», «что сказать, когда…», «новая строчка в…», «тайный ингредиент…», «отзыв о…».
 Опирайся на узнаваемый российский быт: дача, маркетплейсы и пункты выдачи, тёща, общий чат, созвоны, ипотека, нейросети.
-Финальные затравки начинаются с «Три…» — на них отвечают тремя короткими пунктами.`,
+Финальные затравки начинаются с «Три…» — на них отвечают тремя короткими пунктами.
+${LEVEL_AI[s.level] || LEVEL_AI.family}`,
     user: [
       s.topic ? `Тема вечера: ${s.topic}.` : 'Тема: дружеская вечеринка.',
       names.length ? `Играют: ${names.join(', ')}. Имена можно обыграть по-доброму не чаще чем в каждой пятой затравке.` : '',
@@ -283,15 +325,20 @@ function startRound(room, n) {
 
   if (n >= s.total) {
     s.matches = [{ prompt: s.finalDeck.draw(), authors: ring, answers: {}, votes: {}, final: true }];
-    room.setTimer(T.final, () => toVoting(room));
-    room.say(LINES.final[0]);
+    room.say(pick(LINES.final));
   } else {
     s.matches = ring.map((id, i) => ({ prompt: s.deck.draw(), authors: [id, ring[(i + 1) % ring.length]], answers: {}, votes: {} }));
-    room.setTimer(T.write, () => toVoting(room));
-    room.say(LINES.round[Math.min(n - 1, LINES.round.length - 1)]);
+    room.say(pick(LINES.round[Math.min(n - 1, LINES.round.length - 1)]));
+    if (n === 1 && LINES.level[s.level]) room.say(pick(LINES.level[s.level]));
   }
-  room.phase = 'writing';
-  room.sound('round');
+  // заставка раунда, потом пишем
+  room.phase = 'roundIntro';
+  room.sound('sting');
+  room.setTimer(n === 1 && s.level !== 'family' ? T.intro + 3 : T.intro, () => {
+    room.phase = 'writing';
+    room.setTimer(n >= s.total ? T.final : T.write, () => toVoting(room));
+    room.push();
+  });
 }
 
 function toVoting(room) {
@@ -308,7 +355,6 @@ function openVote(room) {
   const m = s.matches[s.idx];
   room.phase = 'voting';
   s.quip = null;
-  room.sound('open');
   room.setTimer(m.final ? T.fvote : T.vote, () => reveal(room));
   if (m.final) room.say(`${m.prompt.replace('___', '')} Раздайте медали.`);
   else {
@@ -354,13 +400,15 @@ async function reveal(room) {
     if (shutout) { rows[0].pts += Math.round(val * 0.25); rows[0].shutout = true; }
     for (const r of rows) award(room, r.id, r.pts);
     const tie = total > 0 && rows[0].votes === rows[1]?.votes;
-    m.result = { rows, total, shutout, tie };
-    room.say(shutout ? pick(LINES.shutout) : tie ? pick(LINES.tie) : rows.some((r) => !r.text) ? pick(LINES.silent) : pick(LINES.win));
-    room.sound(shutout ? 'shutout' : 'reveal');
+    const close = !tie && total > 2 && rows[0].votes - (rows[1]?.votes || 0) === 1;
+    const silent = rows.some((r) => !r.text);
+    m.result = { rows, total, shutout, tie, silent };
+    room.say(shutout ? pick(LINES.shutout) : tie ? pick(LINES.tie) : silent ? pick(LINES.silent)
+      : rows[0].safety ? pick(LINES.safety) : close ? pick(LINES.close) : pick(LINES.win));
   }
 
   room.phase = 'reveal';
-  room.setTimer(m.final ? T.reveal + 3 : T.reveal, () => afterReveal(room));
+  room.setTimer(m.final ? T.reveal + 4 : T.reveal, () => afterReveal(room));
   room.push();
 
   // ведущая комментирует, если ИИ успеет
@@ -392,13 +440,11 @@ function afterRound(room) {
   if (s.round >= s.total) {
     room.phase = 'winner';
     room.clearTimer();
-    room.sound('win');
     const top = [...playing(room)].sort((a, b) => b.score - a.score)[0];
     if (top) room.say(`Самый смешной человек вечера — ${top.name}!`);
     return room.push();
   }
   room.phase = 'scores';
-  room.sound('scores');
   room.setTimer(T.scores, () => { startRound(room, s.round + 1); room.push(); });
   room.push();
 }

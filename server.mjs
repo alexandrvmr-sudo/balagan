@@ -60,6 +60,11 @@ const server = http.createServer(async (req, res) => {
     catch { return send(res, 404, 'text/plain', 'нет'); }
   }
 
+  // песочница: автопилот для проверки экранов
+  if (p === '/drive.js' && TEST_MODE) {
+    return send(res, 200, 'text/javascript; charset=utf-8', await fsp.readFile(path.join(ROOT, 'scripts', 'drive.js')), 'no-store');
+  }
+
   // песочница: комната, переживающая перезагрузку страницы
   if (p === '/api/test/room' && TEST_MODE) {
     const alive = rooms.get(url.searchParams.get('code'));
@@ -244,6 +249,15 @@ async function platformAction(room, p, msg) {
       if (g) room.dealChars();
       return true;
     }
+
+    // песочница: прыгнуть к концу текущего таймера
+    case 'skip':
+      if (TEST_MODE && host && room.timerCb && room.deadline) {
+        const cb = room.timerCb;
+        room.clearTimer();
+        cb();
+      }
+      return true;
 
     case 'dropBots':
       if (TEST_MODE && host && (!g || room.phase === 'lobby')) {
