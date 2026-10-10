@@ -1,6 +1,6 @@
 /* Дымовой прогон: каждая игра целиком, одни боты, время ускорено в 50 раз.
    Ловит падения сервера на всех ветках — разное число игроков, отвалившиеся телефоны.
-   Запуск: npm run smoke */
+   Запуск: npm run smoke  (или одна игра: node scripts/smoke.mjs baraban) */
 
 process.env.BALAGAN_TEST = '1';
 process.env.BALAGAN_TTS = '0';
@@ -52,7 +52,8 @@ function play(game, n, { drop = false, rating = 'family' } = {}) {
 }
 
 let fail = 0;
-for (const g of GAMES) {
+const only = process.argv[2];
+for (const g of GAMES.filter((x) => !only || x.id === only)) {
   const counts = [...new Set([g.minPlayers, Math.min(g.maxPlayers, 5), g.maxPlayers])];
   const runs = counts.flatMap((n) => [false, true].filter((d) => !(d && n < 3)).map((drop) => ({ n, drop, rating: 'family' })));
   // каждый уровень контента — ещё по прогону

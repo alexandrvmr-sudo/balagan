@@ -122,6 +122,7 @@ const FX = {
   scribble: () => { for (let i = 0; i < 5; i++) hiss(0.07, { at: i * 0.08, from: 2500 + Math.random() * 2000, to: 4000, gain: 0.05, q: 4 }); },
   swish: () => hiss(0.22, { from: 900, to: 7000, gain: 0.16, q: 1.4 }),
   tada: () => { chord([60, 64, 67], 0.15, { type: 'square', gain: 0.06 }); chord([72, 76, 79, 84], 0.9, { at: 0.16, type: 'sawtooth', gain: 0.07, roll: 0.02 }); },
+  peg: () => { tone(2300, 0.016, { type: 'square', gain: 0.045 }); tone(760, 0.03, { type: 'triangle', gain: 0.07, slide: 0.7 }); },
   thud: () => { tone(70, 0.3, { type: 'sine', gain: 0.45, slide: 0.6 }); hiss(0.1, { from: 600, to: 200, gain: 0.12, type: 'lowpass' }); },
   buzz: () => { tone(120, 0.5, { type: 'sawtooth', gain: 0.05 }); tone(240, 0.5, { type: 'square', gain: 0.02 }); },
 };

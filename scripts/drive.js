@@ -20,7 +20,8 @@ window.DRIVE = (opts = {}) => {
     if (m.t === 'state') { window.HS = m; if (!opts.manual) auto(m); }
   };
   function auto(S) {
-    const k = JSON.stringify([S.phase, S.task?.m, S.triple?.prompt, S.vote?.prompt, S.medals?.prompt, S.q?.text, S.spin]);
+    const k = JSON.stringify([S.phase, S.task?.m, S.triple?.prompt, S.vote?.prompt, S.medals?.prompt, S.q?.text, S.spin,
+      !!S.ask, S.multi?.q, S.number?.q, S.list?.q, S.match?.q, S.poll?.q, !!S.place, S.swipe?.what, S.swipe?.no]);
     if (done.has(k)) return;
     done.add(k);
     const d = opts.delay ?? 1500;
@@ -28,6 +29,15 @@ window.DRIVE = (opts = {}) => {
     if (S.triple) later(d, () => act({ a: 'triple', texts: ['Носки', 'Сосед с перфоратором', 'Пакет с пакетами'] }));
     if (S.vote && !S.votedFor) later(d, () => act({ a: 'vote', for: S.vote.options[opts.voteIdx ?? 0]?.id || S.vote.options[0].id }));
     if (S.medals && !S.given) { const o = S.medals.options.map((x) => x.id); later(d, () => act({ a: 'medals', gold: o[0], silver: o[1], bronze: o[2] })); }
+    // Барабан
+    if (S.ask) later(d, () => act({ a: 'ask', q: 'Когда я наконец высплюсь?' }));
+    if (S.multi) later(d, () => act({ a: 'multi', picks: [0, 1, 2] }));
+    if (S.number) later(d, () => act({ a: 'num', v: 1000 }));
+    if (S.list) { later(d, () => act({ a: 'item', text: 'водка' })); later(d + 400, () => act({ a: 'listDone' })); }
+    if (S.match) later(d, () => act({ a: 'match', pairs: S.match.left.map((_, i) => i) }));
+    if (S.poll) later(d, () => act({ a: 'poll', for: S.poll.options[0].id }));
+    if (S.place) later(d, () => act({ a: 'place', cells: Array.from({ length: S.place.n }, (_, i) => (i * 5) % S.place.wheel.length) }));
+    if (S.swipe && !opts.noSpin) later(d + 800, () => act({ a: 'spin', power: 0.85 }));
     opts.onState?.(S, act);
   }
   window.HACT = act;
