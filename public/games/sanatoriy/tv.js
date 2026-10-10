@@ -62,7 +62,8 @@ export default {
   },
 
   render(S, ui, prev) {
-    const t = S.phase === 'escape' || S.phase === 'escReveal' || S.phase === 'escIntro' ? 'Побег из больницы'
+    const t = S.phase === 'winner' ? ''
+      : S.phase === 'escape' || S.phase === 'escReveal' || S.phase === 'escIntro' ? 'Побег из больницы'
       : S.qn ? `Вопрос № ${S.qn} из ${S.total}` : '';
     ui.tag(t);
     DRAW[S.phase]?.(S, ui, prev);
@@ -287,7 +288,7 @@ function corridor(S, ui, reveal) {
     const mv = reveal ? S.moves?.[id] : null;
     return `<div class="lane ${out ? 'out' : ''}" data-p="${id}" style="--n:${S.track}">
       <span class="nm">${ui.esc(p?.name)}${S.dead?.[id] ? ' 👻' : ''}${out ? ' · во тьме' : ''}</span>${mv ? `<span class="mv">+${mv}</span>` : ''}
-      <span style="position:absolute;left:${pct(S.pos?.[id] || 0)}%;top:50%;transform:translate(-50%,-55%);transition:left 1.2s var(--spring)">${av(ui, S, id, out ? 'dead' : undefined)}</span></div>`;
+      <span style="position:absolute;left:${(9 + pct(S.pos?.[id] || 0) * 0.88).toFixed(2)}%;top:50%;transform:translate(-50%,-55%);transition:left 1.2s var(--spring)">${av(ui, S, id, out ? 'dead' : undefined)}</span></div>`;
   }).join('');
   const notes = [];
   if (reveal) {
@@ -300,7 +301,7 @@ function corridor(S, ui, reveal) {
       <div class="pn-sign" style="font-size:5vmin;text-align:center">${ui.esc(S.cat || '')}</div>
       <div class="items">${(S.items || []).map((it) => `<div class="item ${reveal ? (it.ok ? 'yes' : 'no') : ''}">${ui.esc(it.t)}</div>`).join('')}</div>
       ${notes.length ? `<div class="pn-hand" style="text-align:center">${notes.join(' · ')}</div>` : ''}
-      <div class="corr" style="padding-right:6vmin"><div class="exitdoor"></div><div class="dark" style="width:${pct(Math.max(0, S.wall + 0.5))}%"></div>${lanes}</div>
+      <div class="corr" style="padding-right:6vmin"><div class="exitdoor"></div><div class="dark" style="width:${S.wall >= 0 ? (9 + pct(S.wall + 0.5) * 0.88).toFixed(2) : 0}%"></div>${lanes}</div>
     </div>`;
   if (reveal && (S.swaps?.length || S.swallowed?.length)) setTimeout(() => ui.fx.shake(ui.app), 600);
 }
