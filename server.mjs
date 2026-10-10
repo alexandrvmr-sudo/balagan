@@ -13,7 +13,7 @@ import QRCode from 'qrcode';
 import { Rooms, metaOf, DEFAULT_CHARS } from './src/rooms.mjs';
 import { GAMES, byId } from './src/games/index.mjs';
 import { aiEnabled } from './src/ai.mjs';
-import { TTS_DIR, ttsEnabled } from './src/tts.mjs';
+import { TTS_DIR, ttsEnabled, ttsEngine } from './src/tts.mjs';
 import { TEST_MODE, assignRoles, online, playing } from './src/lib.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -59,7 +59,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const p = url.pathname;
 
-  if (p === '/health') return json(res, { ok: true, ai: aiEnabled, tts: ttsEnabled, test: TEST_MODE, games: GAMES.map((g) => g.id), ...rooms.stats });
+  if (p === '/health') return json(res, { ok: true, ai: aiEnabled, tts: ttsEngine(), test: TEST_MODE, games: GAMES.map((g) => g.id), ...rooms.stats });
 
   if (p === '/qr') {
     const d = url.searchParams.get('d') || '';
@@ -323,7 +323,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   console.log(`  Телефоны:            ${phones}`);
   if (PUBLIC_URL) console.log(`  Публичный адрес:     ${PUBLIC_URL}`);
   console.log(`  ИИ:                  ${aiEnabled ? 'включён' : 'выключен (нет ANTHROPIC_API_KEY)'}`);
-  console.log(`  Голос ведущих:       ${ttsEnabled ? 'синтез на сервере (macOS)' : 'синтез в браузере'}`);
+  console.log(`  Голос ведущих:       ${!ttsEnabled ? 'синтез в браузере' : ttsEngine() === 'silero' ? 'нейросеть Silero' : 'голос Мака (Milena)'}`);
   if (TEST_MODE) console.log(`  🧪 Песочница:        http://localhost:${PORT}/test  — экран и телефоны в одном окне, боты играют сами`);
 
   if (process.env.BALAGAN_QR !== '0' && !PUBLIC_URL) {

@@ -9,7 +9,8 @@
     "dev": "node --watch server.mjs",
     "party": "caffeinate -s node server.mjs",
     "test-party": "BALAGAN_TEST=1 node --watch server.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "voice": "bash scripts/setup-voice.sh"
   },
   "engines": {
     "node": ">=20"
