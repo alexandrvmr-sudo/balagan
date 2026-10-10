@@ -1,59 +1,75 @@
-/* «Теплоход» — конкурс начинающих комиков на волжском теплоходе.
-   Посадка: коронная фраза и слова для тем. Потом заготовки шуток: выбираешь тему, дописываешь панчлайн.
-   Выступление: ведущий читает завязку, комик сам жмёт «Добить!» — звучит панчлайн и коронная фраза.
-   Дуэли, голосование, а в финале теплоход тонет — все переписывают последнюю шутку. */
+/* «Лайнер» — стендап на борту рейса БГ-404. Сюжет — один полёт:
+   регистрация (коронная фраза и слова для тем) → взлёт → набор высоты (пишем шутки, каждая поднимает самолёт выше) →
+   стендап в проходе салона (командир читает завязку, комик сам жмёт «Добить!») → дуэли, пассажиры голосуют →
+   турбулентность: все дописывают одну последнюю шутку → посадка под аплодисменты, лучший комик рейса. */
 
 import { data, Deck, shuffle, pick, rnd, secs, clean, tally, playing, online } from '../lib.mjs';
 
-const PACK = data('teplohod.json');
+const PACK = data('lainer.json');
 const CATS = Object.keys(PACK.categories);
 const JOKES = 3;
 
 const T = {
   board: secs('BALAGAN_TP_BOARD', 60, 30),
+  takeoff: secs('BALAGAN_TP_TAKEOFF', 8, 3),
   write: secs('BALAGAN_TP_WRITE', 120, 50),
   pick: secs('BALAGAN_TP_PICK', 20, 10),
-  setup: secs('BALAGAN_TP_SETUP', 14, 7),
-  punch: secs('BALAGAN_TP_PUNCH', 6, 4),
-  vote: secs('BALAGAN_TP_VOTE', 15, 10),
-  reveal: secs('BALAGAN_TP_REVEAL', 6, 4),
-  final: secs('BALAGAN_TP_FINAL', 50, 25),
+  setup: secs('BALAGAN_TP_SETUP', 15, 7),
+  punch: secs('BALAGAN_TP_PUNCH', 7, 4),
+  vote: secs('BALAGAN_TP_VOTE', 18, 10),
+  reveal: secs('BALAGAN_TP_REVEAL', 8, 4),
+  turb: secs('BALAGAN_TP_TURB', 7, 3),
+  final: secs('BALAGAN_TP_FINAL', 55, 25),
   fvote: secs('BALAGAN_TP_FVOTE', 25, 12),
-  freveal: secs('BALAGAN_TP_FREVEAL', 9, 6),
+  freveal: secs('BALAGAN_TP_FREVEAL', 10, 6),
+  landing: secs('BALAGAN_TP_LANDING', 9, 3),
 };
 
-const CAP = 'Капитан Михалыч';
+const FLIGHT = 'БГ-404';
+const ALT_STEP = 1300;   // метров за каждую написанную шутку
 
-const fill = (setup, topic) => {
-  const t = setup.text.replace(`{${setup.cat}}`, topic);
-  return t.charAt(0).toUpperCase() + t.slice(1);
-};
-const blank = (setup) => {
-  const t = setup.text.replace(`{${setup.cat}}`, '____');
-  return t.charAt(0).toUpperCase() + t.slice(1);
-};
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+const fill = (setup, topic) => cap(setup.text.split(`{${setup.cat}}`).join(topic));
+const blank = (setup) => cap(setup.text.split(`{${setup.cat}}`).join('____'));
+
+/* колоды по уровню: своё + немного обычного */
+function bank(level) {
+  const take = (list, n) => shuffle(list).slice(0, n);
+  if (level === 'adult') return { setups: [...PACK.adult.setups, ...take(PACK.setups, 25)], final: [...PACK.adult.final, ...take(PACK.final, 4)], catchphrases: [...PACK.adult.catchphrases, ...PACK.catchphrases], botPunch: [...PACK.adult.botPunch, ...take(PACK.botPunch, 6)] };
+  if (level === 'hard') return { setups: [...PACK.hard.setups, ...take(PACK.adult.setups, 14), ...take(PACK.setups, 10)], final: [...PACK.hard.final, ...take(PACK.adult.final, 3)], catchphrases: [...PACK.hard.catchphrases, ...take(PACK.adult.catchphrases, 2), ...PACK.catchphrases], botPunch: [...PACK.hard.botPunch, ...take(PACK.adult.botPunch, 4)] };
+  return { setups: PACK.setups, final: PACK.final, catchphrases: PACK.catchphrases, botPunch: PACK.botPunch };
+}
+
+/* объявление командира: сначала «дин-дон», потом голос из громкоговорителя */
+function announce(room, text) {
+  room.sound('chime');
+  room.say(text, { who: 'lainer' });
+}
 
 export default {
-  id: 'teplohod',
-  title: 'Теплоход',
-  tagline: 'Стендап на волжском теплоходе: собери шутку и добей её сам',
+  id: 'lainer',
+  title: 'Лайнер',
+  tagline: 'Шутки в полёте: стендап в проходе салона, панчлайн добиваешь сам',
   minPlayers: 3,
   maxPlayers: 8,
   tags: ['Стендап', 'Шутки'],
-  minutes: 20,
-  intro: 'Внимание, говорит капитан. На борту теплохода конкурс начинающих комиков. Спасательные жилеты под креслами.',
+  ratings: ['family', 'adult', 'hard'],
+  minutes: 25,
+  intro: `Добрый вечер, дамы и господа. Говорит командир корабля. Рейс ${FLIGHT} — стендап на высоте десять тысяч метров. Спасательные жилеты под креслами, шутки — в телефонах.`,
   rules: [
-    'Посадка: придумай коронную фразу и слова для тем',
-    'Получи заготовки шуток — выбери тему и допиши панчлайн',
-    'Выступай: капитан читает завязку, ты жмёшь «Добить!»',
-    'Зал выбирает, кто смешнее в каждой дуэли',
-    'Финал: теплоход тонет — все дописывают последнюю шутку',
+    'Регистрация: придумай коронную фразу и слова для тем',
+    'Набор высоты: выбери тему и допиши панчлайн к заготовке',
+    'Стендап в проходе: командир читает завязку, ты жмёшь «Добить!»',
+    'Пассажиры жмут кнопку вызова за того, кто смешнее',
+    'Турбулентность: все дописывают одну последнюю шутку',
   ],
 
   init(room) {
     room.state = {
-      deck: new Deck(PACK.setups),
-      finalDeck: new Deck(PACK.final),
+      level: 'family',
+      pack: null,
+      deck: null,
+      finalDeck: null,
       cats: {},           // pid → [cat, cat, cat]
       catch: {},          // pid → коронная фраза
       topics: [],         // { cat, text, by }
@@ -72,11 +88,14 @@ export default {
 
   start(room) {
     const s = room.state;
+    s.level = room.level;
+    s.pack = bank(s.level);
+    s.deck = new Deck(s.pack.setups);
+    s.finalDeck = new Deck(s.pack.final);
     for (const p of playing(room)) s.cats[p.id] = shuffle(CATS).slice(0, 3);
     room.phase = 'board';
-    room.say(this.intro + ' Для начала — коронная фраза и три слова.', { who: 'teplohod' });
-    room.sound('horn');
-    room.setTimer(T.board, () => startWrite(room));
+    announce(room, `${this.intro} Регистрация открыта: коронная фраза и три слова для багажа.`);
+    room.setTimer(T.board, () => takeoff(room));
   },
 
   onPlayerJoin(room, p) { p.audience = true; },
@@ -86,13 +105,13 @@ export default {
     switch (msg.a) {
       case 'board': {
         if (room.phase !== 'board' || p.audience || s.catch[p.id]) return;
-        s.catch[p.id] = clean(msg.catch, 50) || pick(PACK.catchphrases);
+        s.catch[p.id] = clean(msg.catch, 50) || pick(s.pack.catchphrases);
         (s.cats[p.id] || []).forEach((cat, i) => {
           const t = clean(msg.topics?.[i], 30);
           if (t) s.topics.push({ cat, text: t, by: p.id });
         });
         room.sound('pop');
-        if (playing(room).every((x) => !x.connected || s.catch[x.id])) { room.clearTimer(); startWrite(room); }
+        if (playing(room).every((x) => !x.connected || s.catch[x.id])) { room.clearTimer(); takeoff(room); }
         return;
       }
 
@@ -149,7 +168,7 @@ export default {
         const t = clean(msg.text, 110);
         if (!t) return;
         s.final.answers[p.id] = t;
-        room.sound('splash');
+        room.sound('pop');
         if (playing(room).every((x) => !x.connected || s.final.answers[x.id])) { room.clearTimer(); finalVote(room); }
         return;
       }
@@ -168,15 +187,16 @@ export default {
 
   viewTV(room) {
     const s = room.state;
-    const base = { gains: s.gains };
+    const written = Object.values(s.jokes).flat().filter((j) => j.punch).length;
+    const base = { gains: s.gains, level: s.level, flight: FLIGHT, alt: written * ALT_STEP };
     if (room.phase === 'board') return { ...base, progress: playing(room).map((p) => ({ id: p.id, done: !!s.catch[p.id] })) };
-    if (room.phase === 'write') return { ...base, progress: playing(room).map((p) => ({ id: p.id, n: (s.jokes[p.id] || []).filter((j) => j.punch).length, done: !!s.done[p.id] })) };
+    if (room.phase === 'write') return { ...base, progress: playing(room).map((p) => ({ id: p.id, n: (s.jokes[p.id] || []).filter((j) => j.punch).length, done: !!s.done[p.id] })), altMax: playing(room).length * JOKES * ALT_STEP };
     if (room.phase === 'pick') return { ...base, progress: performers(room).map((id) => ({ id, done: s.chosen[id] != null })) };
     if (room.phase === 'perform') {
       const m = s.matches[s.idx];
       const id = m[s.stage.perf];
       const j = jokeOf(s, id);
-      return { ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, lineup: m, performer: id, part: s.stage.part, setup: j ? fill(j.setup, j.topic) : '', punch: s.stage.part === 'punch' ? j?.punch : null, catch: s.stage.part === 'punch' ? s.catch[id] : null };
+      return { ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, lineup: m, perfNo: s.stage.perf, performer: id, part: s.stage.part, setup: j ? fill(j.setup, j.topic) : '', punch: s.stage.part === 'punch' ? j?.punch : null, catch: s.stage.part === 'punch' ? s.catch[id] : null };
     }
     if (room.phase === 'voting') {
       const m = s.matches[s.idx];
@@ -185,23 +205,26 @@ export default {
     if (room.phase === 'reveal') return { ...base, matchNo: s.idx + 1, matchTotal: s.matches.length, result: s.result };
     if (room.phase === 'final') return { ...base, setup: s.final.setup, progress: playing(room).map((p) => ({ id: p.id, done: !!s.final.answers[p.id] })) };
     if (room.phase === 'fvote') return { ...base, setup: s.final.setup, options: Object.entries(s.final.answers).map(([id, text]) => ({ id, text })), voted: Object.keys(s.final.votes).length };
-    if (room.phase === 'freveal' || room.phase === 'winner') return { ...base, setup: s.final?.setup, result: s.final?.result };
+    if (room.phase === 'freveal' || room.phase === 'winner' || room.phase === 'landing') return { ...base, setup: s.final?.setup, result: s.final?.result };
     return base;
   },
 
   viewPlayer(room, p) {
     const s = room.state;
     if (room.phase === 'board') {
-      if (p.audience) return { wait: 'Пассажиры поднимаются на борт' };
-      if (s.catch[p.id]) return { wait: 'Ты на борту! Ждём остальных' };
-      return { board: { cats: (s.cats[p.id] || []).map((c) => ({ cat: c, ask: PACK.categories[c].ask, hint: PACK.categories[c].hint })), examples: shuffle(PACK.catchphrases).slice(0, 3) } };
+      if (p.audience) return { wait: 'Пассажиры проходят регистрацию' };
+      if (s.catch[p.id]) return { wait: 'Посадочный талон получен! Ждём остальных', seat: seatOf(room, p.id) };
+      return { board: { flight: FLIGHT, seat: seatOf(room, p.id), cats: (s.cats[p.id] || []).map((c) => ({ cat: c, ask: PACK.categories[c].ask, hint: PACK.categories[c].hint })), examples: shuffle(s.pack.catchphrases).slice(0, 3) } };
     }
+    if (room.phase === 'takeoff') return { wait: 'Пристегните ремни! Взлетаем', seat: seatOf(room, p.id) };
+    if (room.phase === 'turbulence') return { wait: 'Турбулентность! Держитесь крепче' };
+    if (room.phase === 'landing') return { wait: 'Посадка! Аплодисменты пилоту!' };
     if (room.phase === 'write') {
       if (p.audience || !s.jokes[p.id]) return { wait: 'Комики пишут шутки' };
       if (s.done[p.id]) return { wait: 'Шутки готовы. Ждём остальных' };
       const list = s.jokes[p.id];
       const j = list.findIndex((x) => !x.punch);
-      return { write: { j, of: list.length, written: list.filter((x) => x.punch).length, blank: blank(list[j].setup), options: list[j].options, setup: list[j].setup.text, cat: list[j].setup.cat } };
+      return { write: { j, of: list.length, written: list.filter((x) => x.punch).length, blank: blank(list[j].setup), options: list[j].options, setup: list[j].setup.text, cat: list[j].setup.cat, ask: PACK.categories[list[j].setup.cat].ask } };
     }
     if (room.phase === 'pick') {
       if (!performers(room).includes(p.id)) return { wait: 'Комики выбирают лучшие шутки' };
@@ -212,16 +235,16 @@ export default {
       const m = s.matches[s.idx];
       const me = m[s.stage.perf] === p.id;
       if (me && s.stage.part === 'setup') { const j = jokeOf(s, p.id); return { perform: { setup: fill(j.setup, j.topic), punch: j.punch } }; }
-      return { wait: me ? 'Ловите овации!' : m.includes(p.id) ? 'Скоро твой выход' : 'Тишина в зале — идёт выступление' };
+      return { wait: me ? 'Лови аплодисменты!' : m.includes(p.id) ? 'Скоро твой выход в проход' : 'Тишина в салоне — идёт выступление' };
     }
     if (room.phase === 'voting') {
       const m = s.matches[s.idx];
-      if (!voterIds(room, m).includes(p.id)) return { wait: 'Зал решает твою судьбу' };
+      if (!voterIds(room, m).includes(p.id)) return { wait: 'Салон решает твою судьбу' };
       return { vote: { options: m.filter((id) => id !== p.id).map((id) => { const j = jokeOf(s, id); return { id, name: room.byId(id)?.name, text: `${fill(j.setup, j.topic)} ${j.punch}` }; }) }, votedFor: s.votes[p.id] || null };
     }
     if (room.phase === 'final') {
       if (p.audience) return { wait: 'Комики спасаются как могут' };
-      if (s.final.answers[p.id]) return { wait: 'Записано. Держись за поручень' };
+      if (s.final.answers[p.id]) return { wait: 'Записано. Держись за подлокотник' };
       return { final: { setup: s.final.setup } };
     }
     if (room.phase === 'fvote') {
@@ -242,10 +265,10 @@ export default {
     const s = room.state;
     const moves = [];
     if (room.phase === 'board' && !s.catch[b.id] && !b.audience) {
-      moves.push({ delay: rnd(2, 6), msg: { a: 'board', catch: pick(PACK.catchphrases), topics: (s.cats[b.id] || []).map((c) => pick(PACK.categories[c].fallback)) } });
+      moves.push({ delay: rnd(2, 6), msg: { a: 'board', catch: pick(s.pack.catchphrases), topics: (s.cats[b.id] || []).map((c) => pick(PACK.categories[c].fallback)) } });
     }
     if (room.phase === 'write' && s.jokes[b.id] && !s.done[b.id]) {
-      s.jokes[b.id].forEach((j, i) => { if (!j.punch) moves.push({ delay: rnd(3, 6) + i * 3, msg: { a: 'joke', j: i, topic: Math.floor(Math.random() * j.options.length), punch: pick(PACK.botPunch) } }); });
+      s.jokes[b.id].forEach((j, i) => { if (!j.punch) moves.push({ delay: rnd(3, 6) + i * 3, msg: { a: 'joke', j: i, topic: Math.floor(Math.random() * j.options.length), punch: pick(s.pack.botPunch) } }); });
     }
     if (room.phase === 'pick' && performers(room).includes(b.id) && s.chosen[b.id] == null) {
       const ok = s.jokes[b.id].map((j, i) => (j.punch ? i : -1)).filter((i) => i >= 0);
@@ -257,7 +280,7 @@ export default {
     if (room.phase === 'voting' && voterIds(room, s.matches[s.idx]).includes(b.id)) {
       moves.push({ delay: rnd(1.5, 5), msg: { a: 'vote', for: pick(s.matches[s.idx].filter((id) => id !== b.id)) } });
     }
-    if (room.phase === 'final' && !b.audience && !s.final.answers[b.id]) moves.push({ delay: rnd(3, 9), msg: { a: 'fpunch', text: pick(PACK.botPunch) } });
+    if (room.phase === 'final' && !b.audience && !s.final.answers[b.id]) moves.push({ delay: rnd(3, 9), msg: { a: 'fpunch', text: pick(s.pack.botPunch) } });
     if (room.phase === 'fvote') {
       const opts = Object.keys(s.final.answers).filter((id) => id !== b.id);
       if (opts.length) moves.push({ delay: rnd(2, 6), msg: { a: 'fvote', for: pick(opts) } });
@@ -285,18 +308,31 @@ function optionsFor(s, pid, cat) {
   return pool.slice(0, 3);
 }
 
+/* место в салоне: ряд и буква, как в посадочном */
+function seatOf(room, id) {
+  const i = Math.max(0, room.players.findIndex((p) => p.id === id));
+  return `${12 + Math.floor(i / 2)}${'АВ'[i % 2]}`;
+}
+
+function takeoff(room) {
+  room.phase = 'takeoff';
+  room.sound('jet');
+  announce(room, 'Экипаж, приготовиться к взлёту. Пристегните ремни — и шутки.');
+  room.setTimer(T.takeoff, () => startWrite(room));
+  room.push();
+}
+
 function startWrite(room) {
   const s = room.state;
   for (const p of playing(room)) {
-    if (!s.catch[p.id]) s.catch[p.id] = pick(PACK.catchphrases);
+    if (!s.catch[p.id]) s.catch[p.id] = pick(s.pack.catchphrases);
     s.jokes[p.id] = Array.from({ length: JOKES }, () => {
       const setup = s.deck.draw();
       return { setup, options: optionsFor(s, p.id, setup.cat), topic: null, punch: null };
     });
   }
   room.phase = 'write';
-  room.sound('round');
-  room.say('Все на борту. Пишем шутки! Выбираете тему — дописываете панчлайн.', { who: 'teplohod' });
+  announce(room, 'Набираем высоту. Каждая шутка поднимает нас выше. Выбираете тему — дописываете панчлайн.');
   room.setTimer(T.write, () => toPick(room));
   room.push();
 }
@@ -309,7 +345,7 @@ function checkWrite(room) {
 function toPick(room) {
   const s = room.state;
   const list = performers(room);
-  if (list.length < 2) return startFinal(room);
+  if (list.length < 2) return turbulence(room);
   // у кого одна шутка — выбирать нечего
   for (const id of list) {
     const ok = s.jokes[id].map((j, i) => (j.punch ? i : -1)).filter((i) => i >= 0);
@@ -317,7 +353,7 @@ function toPick(room) {
   }
   if (list.every((id) => s.chosen[id] != null)) return startShow(room);
   room.phase = 'pick';
-  room.say('Выберите лучшую шутку. Остальные утонут вместе с теплоходом.', { who: 'teplohod' });
+  announce(room, 'Выберите лучшую шутку. Остальные сдадим в багаж.');
   room.setTimer(T.pick, () => startShow(room));
   room.push();
 }
@@ -348,7 +384,7 @@ function perform(room) {
   const j = jokeOf(s, id);
   room.phase = 'perform';
   room.sound('applause');
-  room.say(`На сцене — ${p?.name}! ${fill(j.setup, j.topic)}`, { who: 'teplohod' });
+  room.say(`В проходе — ${p?.name}! ${fill(j.setup, j.topic)}`, { who: 'lainer' });
   room.setTimer(T.setup, () => punch(room));
   room.push();
 }
@@ -359,12 +395,11 @@ function punch(room) {
   const j = jokeOf(s, id);
   s.stage.part = 'punch';
   room.sound('rimshot');
-  room.say(`${j.punch}. ${s.catch[id]}`, { who: 'teplohod' });
+  room.say(`${j.punch}. ${s.catch[id]}`, { who: 'lainer2' });
   room.setTimer(T.punch, () => {
     if (s.stage.perf + 1 < s.matches[s.idx].length) { s.stage = { perf: s.stage.perf + 1, part: 'setup' }; return perform(room); }
     room.phase = 'voting';
-    room.sound('open');
-    room.say('Зал, кто смешнее?', { who: 'teplohod' });
+    announce(room, 'Пассажиры, жмите кнопку вызова. Кто смешнее?');
     room.setTimer(T.vote, () => reveal(room));
     room.push();
   });
@@ -387,10 +422,10 @@ function reveal(room) {
   s.result = { rows, tie: total > 0 && rows[0].votes === rows[1]?.votes };
   room.phase = 'reveal';
   room.sound(rows[0].ovation ? 'applause' : 'reveal');
-  room.say(rows[0].ovation ? `Овация! ${room.byId(rows[0].id)?.name} забирает весь зал.` : s.result.tie ? 'Ничья. Зал не определился.' : `Побеждает ${room.byId(rows[0].id)?.name}!`, { who: 'teplohod' });
+  room.say(rows[0].ovation ? `Овация! ${room.byId(rows[0].id)?.name} забирает весь салон.` : s.result.tie ? 'Ничья. Салон не определился.' : `Побеждает ${room.byId(rows[0].id)?.name}!`, { who: 'lainer' });
   room.setTimer(T.reveal, () => {
     if (s.idx + 1 < s.matches.length) { s.idx++; return openMatch(room); }
-    startFinal(room);
+    turbulence(room);
   });
   room.push();
 }
@@ -402,24 +437,32 @@ function award(room, id, pts) {
   room.state.gains[id] = (room.state.gains[id] || 0) + pts;
 }
 
+function turbulence(room) {
+  room.phase = 'turbulence';
+  room.sound('thunder');
+  announce(room, 'Говорит командир. Мы попали в зону турбулентности. Без паники! Кислородные маски — сначала на себя.');
+  room.setTimer(T.turb, () => startFinal(room));
+  room.push();
+}
+
 function startFinal(room) {
   const s = room.state;
   // берём неисполненную заготовку, если есть, иначе финальную из пака
   const spare = shuffle(Object.entries(s.jokes).flatMap(([id, list]) => list.filter((j, i) => j.topic && i !== s.chosen[id]).map((j) => fill(j.setup, j.topic))));
   s.final = { setup: spare[0] && Math.random() < 0.5 ? spare[0] : s.finalDeck.draw(), answers: {}, votes: {}, result: null };
   room.phase = 'final';
-  room.sound('horn');
-  room.say('Пробоина! Мы тонем! Последняя шутка — у всех одна завязка. Допишите, пока есть воздух.', { who: 'teplohod' });
+  room.sound('thunder');
+  announce(room, 'Последняя шутка перед посадкой! У всех одна завязка. Допишите, пока трясёт.');
   room.setTimer(T.final, () => finalVote(room));
   room.push();
 }
 
 function finalVote(room) {
   const s = room.state;
-  if (Object.keys(s.final.answers).length < 2) return finish(room);
+  if (Object.keys(s.final.answers).length < 2) return landing(room);
   room.phase = 'fvote';
   room.sound('open');
-  room.say(`${s.final.setup} ${Object.values(s.final.answers).join('. Или: ')}.`, { who: 'teplohod' });
+  room.say(`${s.final.setup} ${Object.values(s.final.answers).join('. Или: ')}.`, { who: 'lainer' });
   room.setTimer(T.fvote, () => finalReveal(room));
   room.push();
 }
@@ -436,9 +479,18 @@ function finalReveal(room) {
   }).sort((a, b) => b.votes - a.votes);
   s.final.result = rows;
   room.phase = 'freveal';
-  room.sound('splash');
-  room.say(`Последнее слово за ${room.byId(rows[0].id)?.name}.`, { who: 'teplohod' });
-  room.setTimer(T.freveal, () => finish(room));
+  room.sound('reveal');
+  room.say(`Последнее слово за ${room.byId(rows[0].id)?.name}.`, { who: 'lainer' });
+  room.setTimer(T.freveal, () => landing(room));
+  room.push();
+}
+
+/* посадка: по традиции — аплодисменты пилоту */
+function landing(room) {
+  room.phase = 'landing';
+  room.sound('jet');
+  announce(room, `Дамы и господа, наш самолёт совершил посадку. Температура за бортом — плюс двадцать, настроение — плюс сто.`);
+  room.setTimer(T.landing, () => finish(room));
   room.push();
 }
 
@@ -447,6 +499,6 @@ function finish(room) {
   room.clearTimer();
   room.sound('win');
   const top = [...playing(room)].sort((a, b) => b.score - a.score)[0];
-  if (top) room.say(`Лучший комик рейса — ${top.name}! Капитан аплодирует стоя. Хотя мы и тонем.`, { who: 'teplohod' });
+  if (top) room.say(`Лучший комик рейса — ${top.name}! Экипаж аплодирует стоя.`, { who: 'lainer' });
   room.push();
 }

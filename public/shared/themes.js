@@ -45,18 +45,18 @@ export const THEMES = {
       <path d="M83 34l6 6 12-12" stroke="#16210a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
   },
 
-  teplohod: {
-    music: 'teplohod',
-    host: 'Капитан Михалыч',
+  lainer: {
+    music: 'lainer',
+    ambience: 'cabin',
+    reverb: 0.1,
+    host: 'Командир корабля',
     voice: { gender: 'm', pref: ['Yuri'], rate: 0.97, pitch: 0.85 },
     emblem: svg(`
-      <circle cx="84" cy="22" r="10" fill="#fff" opacity=".7"/>
-      <circle cx="96" cy="12" r="7" fill="#fff" opacity=".5"/>
-      <rect x="66" y="30" width="14" height="26" fill="#ff7a1a"/>
-      <rect x="32" y="48" width="58" height="20" rx="4" fill="#fff"/>
-      <circle cx="46" cy="58" r="4" fill="#1d4e89"/><circle cx="60" cy="58" r="4" fill="#1d4e89"/><circle cx="74" cy="58" r="4" fill="#1d4e89"/>
-      <path d="M10 68h100l-14 22H24z" fill="#1d4e89"/>
-      <path d="M4 100c10-8 20-8 28 0s18 8 28 0 20-8 28 0 18 8 28 0" stroke="#7cc6fe" stroke-width="6" fill="none" stroke-linecap="round"/>`),
+      <circle cx="60" cy="60" r="54" fill="#1f6fd1"/>
+      <circle cx="60" cy="60" r="50" fill="none" stroke="#fff" stroke-width="4" opacity=".35"/>
+      <path d="M18 78c8-6 18-6 26 0s18 6 26 0 18-6 26 0" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" opacity=".55"/>
+      <path d="M22 58l66-26c8-3 14 2 10 8l-12 10-14 30-10 4 2-24-22 9-6 10-8 2 3-14z" fill="#fff"/>
+      <path d="M88 40l-4 8" stroke="#ff7a1a" stroke-width="5" stroke-linecap="round"/>`),
   },
 
   baraban: {

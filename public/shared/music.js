@@ -226,14 +226,15 @@ const S = {
     pad: { inst: 'pad', oct: 0 },
     lead: { inst: 'vibes', oct: 24, density: 0.4 },
   },
-  teplohod: {
-    bpm: 132, bar: 16, key: 55, scale: [0, 2, 4, 5, 7, 9, 11], swing: 0.04,
-    prog: [[0, 'M'], [7, '7'], [7, '7'], [0, 'M'], [5, 'M'], [0, 'M'], [7, '7'], [0, 'M']],
-    drums: { kick: 'x.......x.......', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
-    bass: { inst: 'bass', pat: 'R.......F.......' },
-    chords: { inst: 'accordion', pat: '....x.x.....x.x.', oct: 12, len: 1.5 },
-    pad: null,
-    lead: { inst: 'accordion', oct: 24, density: 0.55 },
+  lainer: {
+    bpm: 104, bar: 16, key: 51, scale: [0, 2, 4, 5, 7, 9, 11], swing: 0.12,
+    prog: [[0, 'M7'], [2, 'm7'], [9, 'm7'], [7, '7']],
+    drums: { rim: '..x..x....x..x..', shaker: 'x.xxx.xxx.xxx.xx', kick: 'x......x..x.....' },
+    bass: { inst: 'bass', pat: 'R..F..R...R..F.O' },
+    chords: { inst: 'vibes', pat: 'x..x..x...x..x..', oct: 12, len: 1.5 },
+    pad: { inst: 'pad', oct: 0 },
+    lead: { inst: 'flute', oct: 24, density: 0.42 },
+    tenseDrums: { kick: 'x...x...x...x...', hat: 'xxxxxxxxxxxxxxxx', tom: '............x.x.' },
   },
   baraban: {
     bpm: 120, bar: 16, key: 46, scale: [0, 2, 4, 5, 7, 9, 11], swing: 0.03,

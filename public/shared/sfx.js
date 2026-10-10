@@ -122,6 +122,11 @@ const FX = {
   scribble: () => { for (let i = 0; i < 5; i++) hiss(0.07, { at: i * 0.08, from: 2500 + Math.random() * 2000, to: 4000, gain: 0.05, q: 4 }); },
   swish: () => hiss(0.22, { from: 900, to: 7000, gain: 0.16, q: 1.4 }),
   tada: () => { chord([60, 64, 67], 0.15, { type: 'square', gain: 0.06 }); chord([72, 76, 79, 84], 0.9, { at: 0.16, type: 'sawtooth', gain: 0.07, roll: 0.02 }); },
+  /* самолёт */
+  chime: () => { tone(1175, 1.1, { type: 'sine', gain: 0.13, attack: 0.005 }); tone(2350, 0.5, { type: 'sine', gain: 0.03 }); tone(932, 1.5, { type: 'sine', gain: 0.13, at: 0.5, attack: 0.005 }); tone(1864, 0.6, { type: 'sine', gain: 0.03, at: 0.5 }); },
+  jet: () => { hiss(3.6, { type: 'lowpass', from: 180, to: 2600, gain: 0.26, q: 0.5 }); tone(70, 3.4, { type: 'sawtooth', gain: 0.05, slide: 2.2, attack: 0.8 }); hiss(3, { at: 0.6, type: 'bandpass', from: 1500, to: 5000, gain: 0.05, q: 2 }); },
+  thunder: () => { hiss(2.8, { type: 'lowpass', from: 600, to: 50, gain: 0.4, q: 0.4 }); for (let i = 0; i < 7; i++) hiss(0.12, { at: Math.random() * 0.7, type: 'lowpass', from: 2400, to: 300, gain: 0.14 }); },
+  seatbelt: () => tone(1320, 0.6, { type: 'sine', gain: 0.12 }),
   peg: () => { tone(2300, 0.016, { type: 'square', gain: 0.045 }); tone(760, 0.03, { type: 'triangle', gain: 0.07, slide: 0.7 }); },
   thud: () => { tone(70, 0.3, { type: 'sine', gain: 0.45, slide: 0.6 }); hiss(0.1, { from: 600, to: 200, gain: 0.12, type: 'lowpass' }); },
   buzz: () => { tone(120, 0.5, { type: 'sawtooth', gain: 0.05 }); tone(240, 0.5, { type: 'square', gain: 0.02 }); },
