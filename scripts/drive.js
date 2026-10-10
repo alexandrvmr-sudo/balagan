@@ -22,7 +22,8 @@ window.DRIVE = (opts = {}) => {
   function auto(S) {
     const k = JSON.stringify([S.phase, S.task?.m, S.triple?.prompt, S.vote?.prompt, S.medals?.prompt, S.q?.text, S.spin,
       !!S.ask, S.multi?.q, S.number?.q, S.list?.q, S.match?.q, S.poll?.q, !!S.place, S.swipe?.what, S.swipe?.no,
-      !!S.board, S.write?.j, !!S.pick, S.perform?.setup, S.final?.setup, !!S.fvote, S.ice?.n, S.ice?.q, S.compose?.q]);
+      !!S.board, S.write?.j, !!S.pick, S.perform?.setup, S.final?.setup, !!S.fvote, S.ice?.n, S.ice?.q, S.compose?.q,
+      S.survey?.q, S.guess && `${S.guess.mine}:${S.guess.captain}:${S.guess.phase}:${S.guess.doors.filter((x) => x.open).length}`]);
     if (done.has(k)) return;
     done.add(k);
     const d = opts.delay ?? 1500;
@@ -30,6 +31,9 @@ window.DRIVE = (opts = {}) => {
     if (S.triple) later(d, () => act({ a: 'triple', texts: ['Носки', 'Сосед с перфоратором', 'Пакет с пакетами'] }));
     if (S.vote && !S.votedFor) later(d, () => act({ a: 'vote', for: S.vote.options[opts.voteIdx ?? 0]?.id || S.vote.options[0].id }));
     if (S.medals && !S.given) { const o = S.medals.options.map((x) => x.id); later(d, () => act({ a: 'medals', gold: o[0], silver: o[1], bronze: o[2] })); }
+    // Медная гора
+    if (S.survey) later(d, () => act({ a: 'rank', order: [0, 1, 2] }));
+    if (S.guess?.mine && S.guess.phase === 'guess') { const c = S.guess.doors.find((x) => !x.open); if (c) later(d, () => act({ a: S.guess.captain ? 'open' : 'hint', door: c.i })); }
     // Собеседование
     if (S.ice) later(d, () => act({ a: 'ice', n: S.ice.n, text: 'Люблю дачу кота и тишину по утрам' }));
     if (S.compose) later(d, () => act({ a: 'compose', tiles: S.compose.bank.map((_, i) => i).slice(0, 6) }));

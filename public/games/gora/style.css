@@ -1,106 +1,192 @@
-/* Медная гора — уральская шахта: малахит, медь, темнота, факелы */
+/* Медная гора — шахта Хозяйки: тёмный камень, малахитовое свечение, медь, живое пламя факелов */
 body[data-game="gora"] {
-  --bg: #0b0f0c; --bg2: #14201a; --ink: #f2efe6; --dim: #9fb3a8;
-  --a1: #e2803a; --a2: #f2c14e; --a3: #18c88a; --a4: #5fd3b4;
-  --display: 'Ruslan Display', 'Philosopher', serif;
-  --text: 'Philosopher', 'Inter', sans-serif;
-  --card: rgba(24, 200, 138, 0.06);
-  --line: rgba(120, 220, 180, 0.16);
+  --bg: #0d0907; --bg2: #1c130d; --ink: #f6eadb; --dim: #b8a48c;
+  --a1: #e2803a; --a2: #f2c14e; --a3: #18c88a; --a4: #7ff6ff;
+  --k: #1e140c; --stone: #3b2f27; --stone2: #2a211b;
+  --display: 'Ruslan Display', 'Unbounded', serif;
 }
-body[data-game="gora"] .backdrop::before {
-  background:
-    radial-gradient(50vmax 40vmax at 15% 20%, rgba(24,200,138,.16), transparent 60%),
-    radial-gradient(45vmax 40vmax at 85% 80%, rgba(226,128,58,.14), transparent 60%),
-    radial-gradient(70vmax 60vmax at 50% 50%, transparent 40%, rgba(0,0,0,.75) 85%);
-}
-body[data-game="gora"] .backdrop .art {
-  position: absolute; inset: 0;
-  background-image:
-    radial-gradient(2px 2px at 10% 20%, rgba(242,193,78,.5), transparent),
-    radial-gradient(1.5px 1.5px at 30% 70%, rgba(95,211,180,.5), transparent),
-    radial-gradient(2px 2px at 60% 30%, rgba(242,193,78,.4), transparent),
-    radial-gradient(1.5px 1.5px at 80% 60%, rgba(95,211,180,.5), transparent),
-    radial-gradient(2px 2px at 45% 85%, rgba(242,193,78,.35), transparent),
-    radial-gradient(1.5px 1.5px at 90% 15%, rgba(95,211,180,.4), transparent);
-  background-size: 60vmin 60vmin;
-  animation: dust 40s linear infinite;
-}
-@keyframes dust { from { background-position: 0 0; } to { background-position: 60vmin -120vmin; } }
+body[data-game="gora"] .backdrop .art { display: none; }
 
-/* факелы */
-.torches { display: flex; gap: .8vmin; }
-.torch { position: relative; width: 2.2vmin; height: 5vmin; }
-.torch::before { content: ''; position: absolute; left: 50%; bottom: 0; width: .7vmin; height: 2.6vmin; transform: translateX(-50%); background: #6b4423; border-radius: .3vmin; }
-.torch::after { content: ''; position: absolute; left: 50%; bottom: 2.2vmin; width: 2.2vmin; height: 2.8vmin; transform: translateX(-50%); border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: radial-gradient(circle at 50% 70%, #fff3b0 0 20%, #ffb703 40%, #e2580a 75%, transparent 76%); animation: flame .35s ease-in-out infinite alternate; filter: drop-shadow(0 0 1.2vmin #ff9a1f); }
-.torch.out::after { background: radial-gradient(circle, rgba(200,200,200,.25), transparent 70%); animation: none; filter: none; height: 1.6vmin; }
-@keyframes flame { from { transform: translateX(-50%) scale(1, 1) rotate(-3deg); } to { transform: translateX(-50%) scale(.92, 1.08) rotate(3deg); } }
+/* ---------- шахта ---------- */
+.gr-cave { position: absolute; inset: 0; overflow: hidden; }
+.gr-cave .rock { position: absolute; inset: 0; transition: filter 1.2s;
+  background: radial-gradient(ellipse at 50% 35%, #3a2a1f 0%, #1a120c 55%, #0a0705 100%), repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,.015) 0 2px, transparent 2px 7px); }
+.gr-cave[data-depth="2"] .rock { filter: brightness(.82) hue-rotate(-8deg); }
+.gr-cave[data-depth="3"] .rock { filter: brightness(.66) hue-rotate(-16deg) saturate(1.2); }
+.gr-cave .tites { position: absolute; left: 0; top: 0; width: 100%; height: 14vh; fill: #120c08; filter: drop-shadow(0 1vmin 1vmin rgba(0,0,0,.6)); }
+.gr-cave .cry { position: absolute; bottom: 12vh; width: 22vmin; height: 24vmin; }
+.gr-cave .cry.l { left: 1vmin; } .gr-cave .cry.r { right: 1vmin; }
+.gr-cave .cry i { position: absolute; bottom: 0; width: 3.4vmin; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 80%, #fff), var(--c) 50%, color-mix(in srgb, var(--c) 60%, #000)); clip-path: polygon(50% 0, 100% 22%, 100% 100%, 0 100%, 0 22%);
+  transform: rotate(var(--rot)); transform-origin: bottom; filter: drop-shadow(0 0 1.6vmin var(--c)); animation: glow 3.4s ease-in-out infinite alternate; opacity: .8; }
+@keyframes glow { from { filter: drop-shadow(0 0 .6vmin var(--c)); } to { filter: drop-shadow(0 0 2.4vmin var(--c)); } }
+.gr-cave .shaft { position: absolute; left: 40%; top: -10%; width: 22vw; height: 120%; background: linear-gradient(180deg, rgba(255, 230, 170, .14), transparent 70%); transform: rotate(14deg); filter: blur(2vmin); }
+.gr-cave .dust i { position: absolute; bottom: -2vh; width: .5vmin; height: .5vmin; border-radius: 50%; background: rgba(255, 230, 190, .5); animation: dust linear infinite; }
+@keyframes dust { from { transform: translate(0, 0); opacity: 0; } 20% { opacity: 1; } to { transform: translate(6vw, -105vh); opacity: 0; } }
+.gr-cave .rails { position: absolute; left: 0; right: 0; bottom: 0; height: 10vh; background: linear-gradient(180deg, #1a120c, #0d0907);
+  border-top: .5vmin solid #4a3424; }
+.gr-cave .rails::before { content: ''; position: absolute; left: 0; right: 0; top: 2vh; height: 1vmin; background: repeating-linear-gradient(90deg, #6d4c33 0 4vmin, transparent 4vmin 7vmin); }
 
-/* панели команд */
+/* ---------- Хозяйка ---------- */
+.gr-host { position: relative; line-height: 0; }
+.gr-host svg { width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 0 3vmin rgba(46, 229, 157, .25)); }
+.gr-host .gr-hhead { transform-box: fill-box; transform-origin: 50% 90%; animation: hostSway 4s ease-in-out infinite; }
+.gr-host.talk .gr-hhead { animation: hostTalk .5s ease-in-out infinite; }
+.gr-host .gr-heyes { transform-box: fill-box; transform-origin: center; animation: blinkEye 5s infinite; }
+.gr-host #grMouth { transform-box: fill-box; transform-origin: 50% 30%; transition: transform .06s linear; }
+@keyframes hostSway { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+@keyframes hostTalk { 0%, 100% { transform: rotate(-1deg); } 50% { transform: rotate(1deg) translateY(-.4vmin); } }
+.gr-host.mid { width: 30vmin; animation: rise .8s var(--ease) .3s both; }
+.gr-host.corner { position: absolute; right: -2vmin; bottom: -6vmin; width: 20vmin; z-index: 3; animation: rise .6s var(--ease) .2s both; }
+
+/* ---------- факелы ---------- */
+.torches { display: flex; gap: 3vmin; justify-content: center; padding: 0 1.4vmin; }
+.torch { position: relative; display: inline-block; width: 1.4vmin; height: 5vmin; margin-top: 3vmin; border-radius: .4vmin; background: linear-gradient(90deg, #6d4c33, #3e2a1c); }
+.torch b { position: absolute; left: 50%; bottom: 100%; width: 3.4vmin; height: 4.6vmin; transform: translateX(-50%); border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+  background: radial-gradient(ellipse at 50% 70%, #fff6c8 0 18%, #ffd23f 30%, #ff7b00 60%, rgba(255, 60, 0, 0) 75%); filter: drop-shadow(0 0 1.6vmin #ff9f1c); animation: flame .18s ease-in-out infinite alternate; transform-origin: bottom center; }
+@keyframes flame { from { transform: translateX(-50%) scale(1, 1) skewX(-3deg); } to { transform: translateX(-50%) scale(.92, 1.08) skewX(3deg); } }
+.torch.out b { background: radial-gradient(ellipse at 50% 80%, rgba(160,160,160,.5), transparent 70%); filter: none; animation: smoke 2.4s ease-out infinite; }
+@keyframes smoke { 0% { transform: translateX(-50%) translateY(0) scale(.6); opacity: .7; } 100% { transform: translateX(-50%) translateY(-4vmin) scale(1.4); opacity: 0; } }
+.torch.dying b { animation: die .8s ease-in both; }
+@keyframes die { 0% { transform: translateX(-50%) scale(1); } 40% { transform: translateX(-50%) scale(1.3, .6); } 100% { transform: translateX(-50%) scale(0); opacity: 0; } }
+
+/* ---------- начало: вагонетки ---------- */
+.gr-intro { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; }
+.gr-title, .gr-depth b { font-family: var(--display); }
+.gr-title { font-size: 9vmin; letter-spacing: .04em; }
+.gr-title i { font-style: normal; display: inline-block; color: var(--a1); text-shadow: 0 0 2vmin rgba(226, 128, 58, .6), .4vmin .5vmin 0 #2b1d12; animation: letterDrop .7s var(--spring) both; }
+.gr-title i:nth-child(n+7) { color: var(--a3); text-shadow: 0 0 2vmin rgba(24, 200, 138, .6), .4vmin .5vmin 0 #05432f; }
+.gr-title i.sp { width: .3em; }
+@keyframes letterDrop { 0% { transform: translateY(-50vh) scale(.6, 1.6); opacity: 0; } 55% { transform: translateY(0) scale(1.2, .8); opacity: 1; } 100% { transform: none; } }
+.gr-carts { display: flex; gap: 10vmin; align-items: flex-end; }
+.gr-cart { position: relative; display: flex; flex-direction: column; align-items: center; }
+.gr-cart.l { animation: cartL 1.6s cubic-bezier(.2, .8, .3, 1) both; } .gr-cart.r { animation: cartR 1.6s cubic-bezier(.2, .8, .3, 1) .2s both; }
+@keyframes cartL { from { transform: translateX(-60vw); } } @keyframes cartR { from { transform: translateX(60vw); } }
+.gr-cart .name { font-family: var(--display); font-size: 4vmin; color: var(--tc); text-shadow: 0 0 1.6vmin color-mix(in srgb, var(--tc) 60%, transparent); }
+.gr-cart .crew { position: relative; z-index: 0; display: flex; gap: .4vmin; margin-bottom: -3vmin; }
+.gr-cart .crew .cav { font-size: 4.2vmin; }
+.gr-cart .tub { position: relative; z-index: 1; width: 34vmin; height: 10vmin; background: linear-gradient(180deg, color-mix(in srgb, var(--tc, #6d4c33) 55%, #3e2a1c), #2b1d12); clip-path: polygon(0 0, 100% 0, 92% 100%, 8% 100%); border-top: .8vmin solid #8a6d4f; }
+.gr-cart .wh { display: flex; gap: 16vmin; margin-top: -1.6vmin; z-index: 2; }
+.gr-cart .wh i { width: 4.4vmin; height: 4.4vmin; border-radius: 50%; background: radial-gradient(circle, #8a8f98 0 25%, #2b2f36 30% 60%, #6d737c 62%); border: .4vmin solid #1e140c; animation: spin 1s linear infinite; }
+.gr-cart .torches { margin-top: 1vmin; }
+
+/* ---------- спуск ---------- */
+.gr-desc { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vmin; overflow: hidden; }
+.gr-depth { display: flex; align-items: baseline; gap: 2vmin; color: var(--dim); font-weight: 800; font-size: 2.4vmin; text-transform: uppercase; letter-spacing: .16em; }
+.gr-depth b { font-size: 16vmin; line-height: 1; color: var(--a2); text-shadow: 0 0 3vmin rgba(242, 193, 78, .5); animation: slam .6s var(--ease) both; }
+.gr-track { position: relative; width: 120vmin; height: 26vmin; transform: rotate(10deg); border-bottom: 1vmin solid #6d4c33; }
+.gr-track::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2.6vmin; height: 1.2vmin; background: repeating-linear-gradient(90deg, #4a3424 0 3vmin, transparent 3vmin 6vmin); }
+.gr-cart.solo { position: absolute; left: 0; bottom: 0; animation: descend 4.6s cubic-bezier(.5, 0, .9, .6) .3s both; }
+.gr-cart.solo .tub { width: 22vmin; height: 8vmin; }
+.gr-cart.solo .wh { gap: 10vmin; } .gr-cart.solo .wh i { width: 3.4vmin; height: 3.4vmin; animation-duration: .3s; }
+.gr-cart .lamp { position: absolute; right: -3vmin; top: 1vmin; width: 3vmin; height: 3vmin; border-radius: 50%; background: #fff6c8; box-shadow: 0 0 4vmin 2vmin rgba(255, 230, 150, .6); }
+@keyframes descend { 0% { transform: translateX(0); } 100% { transform: translateX(140vmin); } }
+.gr-goal { font-family: var(--display); font-size: 4vmin; text-align: center; max-width: 120vmin; color: var(--ink); animation: rise .6s var(--ease) 1s both; }
+
+/* ---------- опрос ---------- */
+.gr-survey { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vmin; }
+.gr-tablet { max-width: 130vmin; padding: 2.4vmin 4vmin; border-radius: 1.6vmin; text-align: center; background: linear-gradient(180deg, var(--stone), var(--stone2)); border: .6vmin solid #5a4636; box-shadow: inset 0 0 3vmin rgba(0,0,0,.6), 0 2vmin 3vmin rgba(0,0,0,.5); animation: rise .6s var(--ease) both; }
+.gr-tablet small { display: block; font-weight: 800; font-size: 1.8vmin; letter-spacing: .16em; text-transform: uppercase; color: var(--a3); }
+.gr-tablet .q { margin-top: 1vmin; font-family: var(--display); font-size: 5vmin; line-height: 1.1; color: var(--a2); text-shadow: 0 .3vmin 0 #2b1d12, 0 0 2vmin rgba(242, 193, 78, .35); }
+.gr-tablet.small .q { font-size: 3.4vmin; }
+.gr-crys { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.4vmin; max-width: 130vmin; }
+.gr-crys span { padding: 1vmin 2.2vmin; border-radius: 1vmin; background: color-mix(in srgb, var(--c) 22%, #1a120c); border: .3vmin solid var(--c); color: var(--ink); font-weight: 800; font-size: 2.3vmin; box-shadow: 0 0 1.6vmin color-mix(in srgb, var(--c) 40%, transparent); animation: pop .5s var(--spring) both; }
+.gr-lanterns { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.6vmin; }
+.gr-lanterns span { position: relative; display: flex; flex-direction: column; align-items: center; gap: .4vmin; opacity: .45; transition: opacity .3s; }
+.gr-lanterns span .cav, .gr-lanterns span .avatar { font-size: 2.6vmin; }
+.gr-lanterns span i { width: 1.6vmin; height: 1.6vmin; border-radius: 50%; background: #3e2a1c; }
+.gr-lanterns span b { font-size: 1.5vmin; font-weight: 800; }
+.gr-lanterns span.lit { opacity: 1; }
+.gr-lanterns span.lit i { background: #ffd23f; box-shadow: 0 0 1.6vmin #ff9f1c; }
+
+/* ---------- угадывание ---------- */
 .gr-wrap { flex: 1; display: grid; grid-template-columns: 22vmin 1fr 22vmin; gap: 2.4vmin; min-height: 0; }
-.gr-team { display: flex; flex-direction: column; align-items: center; gap: 1.4vmin; padding: 2vmin 1.4vmin; border-radius: 2vmin; background: var(--card); border: .35vmin solid var(--line); transition: transform .4s var(--spring), border-color .3s, box-shadow .3s; }
-.gr-team h3 { font-size: 2.3vmin; text-align: center; }
-.gr-team .score { font-family: var(--display); font-size: 4vmin; color: var(--a2); }
-.gr-team .gems { font-size: 2.4vmin; letter-spacing: .3vmin; min-height: 3vmin; }
-.gr-team .mem { display: flex; flex-wrap: wrap; justify-content: center; gap: .6vmin; }
-.gr-team .mem .avatar { font-size: 1.7vmin; }
-.gr-team .mem .cap { box-shadow: 0 0 0 .4vmin var(--a2); }
-.gr-team.active { border-color: var(--tc); box-shadow: 0 0 0 .6vmin color-mix(in srgb, var(--tc) 25%, transparent), 0 0 6vmin color-mix(in srgb, var(--tc) 30%, transparent); transform: scale(1.04); }
-
+.gr-team { display: flex; flex-direction: column; align-items: center; gap: 1.4vmin; padding: 2vmin 1.2vmin; border-radius: 1.6vmin; background: linear-gradient(180deg, rgba(30, 20, 12, .85), rgba(13, 9, 7, .85)); border: .4vmin solid color-mix(in srgb, var(--tc) 40%, #3e2a1c); transition: box-shadow .4s, transform .4s var(--spring); }
+.gr-team.active { box-shadow: 0 0 0 .5vmin var(--tc), 0 0 4vmin color-mix(in srgb, var(--tc) 50%, transparent); transform: translateY(-1vmin); }
+.gr-team .ban { font-family: var(--display); font-size: 2.6vmin; text-align: center; color: var(--tc); line-height: 1.05; }
+.gr-team .score { font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 3.6vmin; color: var(--a2); }
+.gr-team .gems { display: flex; flex-wrap: wrap; justify-content: center; gap: .4vmin; min-height: 3vmin; }
+.gr-team .mem { display: flex; flex-wrap: wrap; justify-content: center; gap: .8vmin; margin-top: auto; }
+.gr-team .mem span { position: relative; }
+.gr-team .mem .cav, .gr-team .mem .avatar { font-size: 2.4vmin; }
+.gr-team .mem span.cap { filter: drop-shadow(0 0 1vmin var(--tc)); transform: scale(1.25); }
+.gr-team .mem em { position: absolute; right: -1.2vmin; top: -1.4vmin; font-style: normal; font-size: 2vmin; }
+.gr-gem { width: 7vmin; height: 7vmin; filter: drop-shadow(0 0 1.4vmin rgba(255,255,255,.4)); }
+.gr-gem.mini { width: 2.8vmin; height: 2.8vmin; filter: none; }
 .gr-mid { display: flex; flex-direction: column; gap: 2vmin; min-height: 0; }
 .gr-q { text-align: center; }
-.gr-q .q { font-family: var(--display); font-size: 4.2vmin; line-height: 1.1; color: var(--ink); text-shadow: 0 .4vmin 0 rgba(0,0,0,.5); }
-.gr-q .goal { margin-top: 1vmin; font-size: 2vmin; color: var(--a2); font-weight: 700; }
+.gr-q .q { font-family: var(--display); font-size: 4vmin; color: var(--a2); line-height: 1.1; text-shadow: 0 .3vmin 0 #2b1d12; }
+.gr-q .goal { margin-top: .6vmin; font-weight: 800; font-size: 2vmin; color: var(--a3); letter-spacing: .06em; }
+.gr-doors { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr); gap: 1.8vmin; min-height: 0; }
+.gr-door { position: relative; border-radius: 1vmin; overflow: hidden; background: #070504; box-shadow: inset 0 0 3vmin #000; }
+.gr-door .beam { position: absolute; inset: 0; border: 1.2vmin solid #6d4c33; border-top-width: 1.6vmin; border-radius: 1vmin; z-index: 3; pointer-events: none; box-shadow: inset 0 0 0 .3vmin #3e2a1c; }
+.gr-door .inside { position: absolute; inset: 0; display: grid; place-items: center; }
+.gr-door .slab { position: absolute; inset: 1.2vmin; z-index: 2; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .8vmin; padding: 1vmin; text-align: center;
+  background: radial-gradient(ellipse at 30% 30%, #5a4636, #3b2f27 60%, #2a211b), repeating-linear-gradient(35deg, rgba(0,0,0,.08) 0 3px, transparent 3px 9px); transition: transform .7s cubic-bezier(.5, -0.3, .3, 1); }
+.gr-door .slab .t { font-weight: 900; font-size: 2.3vmin; line-height: 1.15; color: #f6eadb; text-shadow: 0 .2vmin 0 #000; }
+.gr-door .slab .hints { display: flex; flex-wrap: wrap; justify-content: center; gap: .3vmin; min-height: 2.4vmin; }
+.gr-door .slab .hints .cav, .gr-door .slab .hints .avatar { font-size: 1.6vmin; }
+.gr-door.hot .slab { box-shadow: inset 0 0 0 .4vmin var(--a2), inset 0 0 3vmin rgba(242, 193, 78, .35); }
+.gr-door.gem .slab, .gr-door.mon .slab { transform: translateY(-74%); }
+.gr-door.gem .slab .hints, .gr-door.mon .slab .hints { display: none; }
+.gr-door.gem .slab { background: linear-gradient(180deg, #3b2f27, color-mix(in srgb, var(--bc) 35%, #2a211b)); }
+.gr-door.gem .inside { background: radial-gradient(circle at 50% 70%, rgba(46, 229, 157, .35), transparent 65%); }
+.gr-door.gem .inside .gr-gem { margin-top: 4vmin; animation: gemPop .7s var(--spring) .3s both, bob 2s ease-in-out 1s infinite; }
+@keyframes gemPop { from { transform: translateY(6vmin) scale(0) rotate(-40deg); } to { transform: none; } }
+.gr-door.mon .inside { background: radial-gradient(circle at 50% 70%, rgba(255, 60, 40, .25), transparent 65%); }
+.gr-door .eyes { display: flex; gap: 2vmin; margin-top: 4vmin; }
+.gr-door .eyes i { width: 3vmin; height: 2vmin; border-radius: 50%; background: #ffd23f; box-shadow: 0 0 1.6vmin #ff9f1c; animation: blinkEye 2.6s infinite; }
+.gr-door .rk { position: absolute; left: 50%; bottom: 1.8vmin; z-index: 4; transform: translateX(-50%); display: flex; align-items: baseline; gap: .4vmin; padding: .2vmin 1.2vmin; border-radius: .8vmin; background: rgba(0,0,0,.6); font-family: 'Unbounded', sans-serif; font-weight: 900; font-size: 2.6vmin; color: var(--a2); animation: pop .4s var(--spring) .5s both; }
+.gr-door .rk small { font-size: 1.2vmin; color: var(--dim); font-family: var(--text); font-weight: 800; }
+.gr-ticker { display: flex; justify-content: center; align-items: center; gap: .8vmin; font-weight: 800; font-size: 2vmin; color: var(--dim); }
+.gr-ticker .cav, .gr-ticker .avatar { font-size: 1.8vmin; }
+.gr-ticker .ok { color: var(--a3); font-family: var(--display); font-size: 2.6vmin; } .gr-ticker .bad { color: #ff5a4f; font-family: var(--display); font-size: 2.6vmin; }
 
-/* двери */
-.doors { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2vmin; min-height: 0; }
-.door { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 1.6vmin 1.2vmin; text-align: center;
-  border-radius: 12vmin 12vmin 1.2vmin 1.2vmin; background: linear-gradient(180deg, #2a3a30, #1a241e); border: .5vmin solid #3d5446; box-shadow: inset 0 0 3vmin rgba(0,0,0,.6), 0 .8vmin 0 rgba(0,0,0,.5);
-  transition: transform .4s var(--spring), background .4s, border-color .4s; overflow: hidden; }
-.door .t { font-size: 2.1vmin; font-weight: 700; line-height: 1.2; }
-.door .hints { position: absolute; top: 1.6vmin; left: 0; right: 0; display: flex; justify-content: center; gap: .4vmin; }
-.door .hints .avatar { font-size: 1.5vmin; animation: pop .4s var(--spring) both; }
-.door .res { font-size: 6vmin; line-height: 1; margin-bottom: .6vmin; }
-.door .rk { position: absolute; top: 1vmin; right: 1.4vmin; font-family: var(--display); font-size: 2.2vmin; color: var(--a2); }
-.door.hot { transform: translateY(-1vmin); border-color: var(--a2); }
-.door.gem { background: radial-gradient(circle at 50% 35%, rgba(24,200,138,.55), #0f2a20 70%); border-color: var(--a3); animation: pop .5s var(--spring) both; }
-.door.gem .res { animation: bob 1.8s ease-in-out infinite; filter: drop-shadow(0 0 1.6vmin #18c88a); }
-.door.monster { background: radial-gradient(circle at 50% 35%, rgba(200,40,40,.5), #2a0d0d 70%); border-color: #c0392b; animation: shake .5s; }
-.door.dim { opacity: .55; }
-.gr-ticker { text-align: center; font-size: 2.2vmin; font-weight: 700; color: var(--dim); }
-.gr-ticker b { color: var(--ink); }
+/* чудище выпрыгивает из двери на весь экран */
+.gr-jump { position: fixed; left: var(--x); top: var(--y); z-index: 40; width: 70vmin; transform: translate(-50%, -50%); pointer-events: none; animation: jump 2.1s cubic-bezier(.2, 1.4, .4, 1) both; }
+.gr-jump .gr-mon { width: 100%; height: auto; filter: drop-shadow(0 0 4vmin rgba(255, 60, 30, .5)); }
+@keyframes jump { 0% { transform: translate(-50%, -50%) scale(.1); opacity: 0; } 20% { transform: translate(-50%, -60%) scale(1.15); opacity: 1; } 32% { transform: translate(-50%, -55%) scale(1) rotate(-3deg); } 44% { transform: translate(-50%, -55%) scale(1.04) rotate(3deg); } 80% { transform: translate(-50%, -55%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -40%) scale(.3); opacity: 0; } }
 
-/* итоги раунда */
-.gr-rank { display: flex; flex-direction: column; gap: .9vmin; width: min(110vmin, 100%); margin: 0 auto; }
-.gr-rank .r { display: grid; grid-template-columns: 4vmin 1fr 30vmin 6vmin; align-items: center; gap: 1.6vmin; padding: 1vmin 1.8vmin; border-radius: 1.2vmin; background: var(--card); border: 1px solid var(--line); }
-.gr-rank .r.t { border-color: var(--a3); background: rgba(24,200,138,.14); }
-.gr-rank .n { font-family: var(--display); font-size: 2.2vmin; color: var(--dim); }
-.gr-rank .nm { font-size: 2.2vmin; font-weight: 700; }
-.gr-rank .bar { height: 1.6vmin; border-radius: 1vmin; background: rgba(255,255,255,.08); overflow: hidden; }
-.gr-rank .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--a3), var(--a2)); transform-origin: left; animation: grow .9s var(--ease) both; }
-@keyframes grow { from { transform: scaleX(0); } }
-.gr-rank .pt { font-family: var(--display); font-size: 2vmin; text-align: right; }
+/* ---------- итоги яруса ---------- */
+.gr-end { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4vmin; }
+.gr-veins { width: min(120vmin, 100%); display: flex; flex-direction: column; gap: .9vmin; }
+.gr-veins .v { display: grid; grid-template-columns: 4vmin 30vmin 1fr 6vmin 3vmin; align-items: center; gap: 1.4vmin; padding: .7vmin 1.4vmin; border-radius: 1vmin; background: rgba(30, 20, 12, .8); border: .25vmin solid #3e2a1c; animation: rise .45s var(--ease) both; }
+.gr-veins .v b { font-family: 'Unbounded', sans-serif; font-size: 2.4vmin; color: var(--dim); }
+.gr-veins .v span { font-weight: 800; font-size: 2.2vmin; }
+.gr-veins .v .ore { height: 2.2vmin; border-radius: 1vmin; background: #1a120c; overflow: hidden; }
+.gr-veins .v .ore i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #6d4c33, #e2803a); animation: ore .9s var(--ease) both; }
+@keyframes ore { to { width: var(--w); } }
+.gr-veins .v em { font-style: normal; font-family: 'Unbounded', sans-serif; font-weight: 900; text-align: right; }
+.gr-veins .v.t { border-color: var(--a3); box-shadow: 0 0 2vmin rgba(24, 200, 138, .25); }
+.gr-veins .v.t .ore i { background: linear-gradient(90deg, #0b6e4f, #2ee59d); }
+.gr-veins .v.t b { color: var(--a3); }
 
-/* команды */
-.gr-teams { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 4vmin; align-items: center; }
-.gr-tcard { padding: 4vmin; border-radius: 3vmin; text-align: center; background: color-mix(in srgb, var(--tc) 14%, transparent); border: .5vmin solid var(--tc); display: flex; flex-direction: column; align-items: center; gap: 2vmin; }
-.gr-tcard h2 { font-size: 5vmin; color: var(--tc); }
-.gr-tcard .mem { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2vmin; }
-.gr-tcard .person { font-size: 2vmin; }
+/* ---------- победа: выход на свет ---------- */
+.gr-win { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vmin; overflow: hidden; margin: -2vmin -3.6vmin -6.5vmin; padding: 2vmin 3.6vmin 6.5vmin; }
+.gr-win > :not(.gr-sun):not(.gr-host) { position: relative; z-index: 1; }
+.gr-sun { position: absolute; left: 50%; top: 46%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(255, 246, 200, .9) 0, rgba(255, 210, 120, .4) 35%, transparent 70%); animation: sunrise 2.4s var(--ease) both; }
+@keyframes sunrise { from { transform: translate(-50%, -50%) scale(.1); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.gr-win .kick { font-weight: 800; font-size: 2.2vmin; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.gr-win .team { font-family: var(--display); font-size: 11vmin; line-height: 1; text-shadow: 0 0 3vmin currentColor, .5vmin .6vmin 0 #1e140c; animation: slam .7s var(--ease) .6s both; }
+.gr-win .crew { display: flex; flex-wrap: wrap; justify-content: center; gap: 2vmin; }
+.gr-win .crew span { display: flex; flex-direction: column; align-items: center; gap: .4vmin; font-size: 2vmin; animation: pop .5s var(--spring) both; }
+.gr-win .crew .cav { font-size: 4.4vmin; }
+.gr-win .scores { display: flex; gap: 4vmin; font-size: 2.6vmin; font-weight: 800; }
+.gr-win .titles { display: flex; gap: 3vmin; }
+.gr-win .tt { display: flex; align-items: center; gap: 1vmin; padding: 1vmin 2vmin; border-radius: 99vmin; background: rgba(30, 20, 12, .85); border: .3vmin solid #5a4636; font-size: 2vmin; }
+.gr-win .tt i { font-style: normal; font-size: 2.8vmin; } .gr-win .tt small { color: var(--dim); font-weight: 800; text-transform: uppercase; letter-spacing: .1em; font-size: 1.4vmin; }
 
-/* телефон */
-.ph .gr-tbadge { padding: 10px 14px; border-radius: 14px; font-weight: 800; text-align: center; background: color-mix(in srgb, var(--tc) 20%, transparent); border: 2px solid var(--tc); color: var(--tc); }
+/* ---------- телефон ---------- */
+.ph .gr-tbadge { align-self: center; padding: 6px 14px; border-radius: 20px; border: 2px solid var(--tc); color: var(--tc); font-weight: 800; font-size: 13px; text-align: center; }
+.ph .rank-opt { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 13px 14px; border-radius: 14px; background: linear-gradient(180deg, #3b2f27, #2a211b); border: 2px solid #5a4636; font-weight: 800; font-size: 16px; color: var(--ink); }
+.ph .rank-opt b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #1a120c; font-family: 'Unbounded', sans-serif; color: var(--a2); }
+.ph .rank-opt.on { border-color: var(--a2); box-shadow: 0 0 12px rgba(242, 193, 78, .35); }
+.ph .rank-opt.on b { background: var(--a2); color: #1e140c; }
 .ph .gr-doors { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ph .gr-door { position: relative; min-height: 76px; padding: 26px 8px 10px; border-radius: 40px 40px 12px 12px; background: linear-gradient(180deg, #2a3a30, #1a241e); border: 3px solid #3d5446; font-size: 14px; font-weight: 700; line-height: 1.2; text-align: center; }
-.ph .gr-door.gem { border-color: var(--a3); background: rgba(24,200,138,.25); }
-.ph .gr-door.monster { border-color: #c0392b; background: rgba(192,57,43,.25); opacity: .6; }
-.ph .gr-door.sel { border-color: var(--a2); transform: translateY(-3px); box-shadow: 0 0 0 3px rgba(242,193,78,.3); }
-.ph .gr-door .hc { position: absolute; top: 6px; left: 0; right: 0; display: flex; justify-content: center; gap: 2px; }
-.ph .gr-door .hc .avatar { font-size: 9px; }
-.ph .gr-door .num { position: absolute; top: 6px; right: 12px; font-family: var(--display); color: var(--a2); font-size: 16px; }
-.ph .rank-opt { display: grid; grid-template-columns: 36px 1fr; gap: 10px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 14px; background: var(--card); border: 2px solid var(--line); font-size: 16px; font-weight: 700; }
-.ph .rank-opt b { font-family: var(--display); font-size: 22px; color: var(--a2); text-align: center; }
-.ph .rank-opt.on { border-color: var(--a2); }
-
-body[data-game="gora"] .ph h1 { font-size: 23px; }
-body[data-game="gora"] .ph h2 { font-size: 18px; }
+.ph .gr-door { position: relative; min-height: 76px; padding: 12px 8px 8px; border-radius: 12px; background: linear-gradient(180deg, #4a3a2e, #2a211b); border: 4px solid #6d4c33; font-weight: 800; font-size: 14px; color: var(--ink); line-height: 1.2; }
+.ph .gr-door .hc { display: flex; justify-content: center; gap: 2px; min-height: 16px; }
+.ph .gr-door .hc .cav, .ph .gr-door .hc .avatar { font-size: 11px; }
+.ph .gr-door .num { font-size: 22px; }
+.ph .gr-door.sel { border-color: var(--a2); box-shadow: 0 0 14px rgba(242, 193, 78, .5); }
+.ph .gr-door.gem { border-color: var(--a3); opacity: .7; }
+.ph .gr-door.monster { border-color: #ff5a4f; opacity: .55; }
+.ph .gr-door[disabled] { pointer-events: none; }

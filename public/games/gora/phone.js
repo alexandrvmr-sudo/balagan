@@ -14,7 +14,7 @@ export default {
     if (S.survey) return survey(S, ui);
     if (S.guess) return guess(S, ui);
     if (S.phase === 'winner') return winner(S, ui);
-    ui.wait(S.phase === 'teams' ? '⛏️' : '💎', S.wait || 'Смотри на экран');
+    ui.wait({ teams: '⛏️', descend: '🛤️', roundEnd: '📜' }[S.phase] || '💎', S.wait || 'Смотри на экран');
     if (S.team) ui.foot.innerHTML = `<div class="gr-tbadge" style="--tc:${S.teamColor}">команда «${ui.esc(S.teamName)}»</div>`;
   },
 

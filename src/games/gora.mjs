@@ -7,11 +7,12 @@ import { data, Deck, shuffle, pick, rnd, secs, playing, online } from '../lib.mj
 const PACK = data('gora.json');
 
 const T = {
-  teams: secs('BALAGAN_GORA_TEAMS', 8, 5),
+  teams: secs('BALAGAN_GORA_TEAMS', 10, 5),
+  descend: secs('BALAGAN_GORA_DESCEND', 6, 2),
   survey: secs('BALAGAN_GORA_SURVEY', 40, 20),
   turn: secs('BALAGAN_GORA_TURN', 25, 10),
-  reveal: secs('BALAGAN_GORA_REVEAL', 3, 2),
-  end: secs('BALAGAN_GORA_END', 12, 7),
+  reveal: secs('BALAGAN_GORA_REVEAL', 5, 2),
+  end: secs('BALAGAN_GORA_END', 14, 7),
 };
 
 const ROUNDS = [
@@ -27,6 +28,7 @@ const TEAMS = [
 
 const say = {
   start: 'Добро пожаловать в мою гору. Выход найдёт тот, кто знает, что думают люди.',
+  descend: ['Спускаемся ниже. Тут камни дороже, а чудища злее.', 'Ниже, ещё ниже. Держите факелы крепче.'],
   survey: 'Каждый тихо выбирает свои три любимых ответа. Не подглядывать.',
   gem: ['Самоцвет!', 'Угадали.', 'Камень ваш.', 'Блестит!'],
   monster: ['Чудище!', 'Мимо. Гаснет факел.', 'Не та дверь.', 'Темнее стало.'],
@@ -40,7 +42,9 @@ export default {
   minPlayers: 3,
   maxPlayers: 12,
   tags: ['Команды', 'Опросы'],
-  minutes: 15,
+  ratings: ['family', 'adult'],
+  chars: ['danila', 'katya', 'ognevushka', 'kopytce', 'poloz', 'sinyushka', 'kokovanya', 'murenka', 'stepan', 'yashcherka', 'cvetok', 'rudoznatec'],
+  minutes: 18,
   intro: 'Медная гора. Две команды, одна шахта и Хозяйка, которая знает, что думают люди.',
   rules: [
     'Вас делят на две команды — Малахитовые и Медные',
@@ -52,7 +56,8 @@ export default {
 
   init(room) {
     room.state = {
-      deck: new Deck(PACK.surveys),
+      deck: null,
+      level: 'family',
       round: 0,
       teams: { A: [], B: [] },
       teamScore: { A: 0, B: 0 },
@@ -74,6 +79,8 @@ export default {
 
   start(room) {
     const s = room.state;
+    s.level = room.level;
+    s.deck = new Deck(s.level === 'adult' ? [...PACK.adult, ...shuffle(PACK.surveys).slice(0, 6)] : PACK.surveys);
     const ids = shuffle(playing(room).map((p) => p.id));
     s.teams = { A: ids.filter((_, i) => i % 2 === 0), B: ids.filter((_, i) => i % 2 === 1) };
     room.phase = 'teams';
@@ -121,7 +128,7 @@ export default {
     const s = room.state;
     const base = {
       round: s.round, rounds: ROUNDS.length, teams: teamsView(room), teamScore: s.teamScore,
-      torches: s.torches, gems: s.gems,
+      torches: s.torches, gems: s.gems, level: s.level, goalText: ROUNDS[s.round - 1]?.title || '',
     };
     if (room.phase === 'survey') {
       return { ...base, question: s.survey.q, options: s.survey.options, done: online(room.players).map((p) => ({ id: p.id, done: !!s.picks[p.id] })) };
@@ -149,6 +156,7 @@ export default {
     const team = teamOf(s, p.id);
     const my = { team, teamName: TEAMS.find((t) => t.id === team)?.name || null, teamColor: TEAMS.find((t) => t.id === team)?.color };
     if (room.phase === 'teams') return { ...my, wait: team ? `Ты в команде «${my.teamName}»` : 'Ты в зале — смотри и болей' };
+    if (room.phase === 'descend') return { ...my, wait: `Спуск на ярус ${s.round}` };
     if (room.phase === 'survey') {
       if (s.picks[p.id]) return { ...my, wait: 'Принято. Ждём остальных' };
       return { ...my, survey: { q: s.survey.q, options: s.survey.options } };
@@ -221,6 +229,7 @@ function hintsByDoor(s) {
   return out;
 }
 
+/* раунд — новый ярус шахты: вагонетка едет вниз, потом опрос */
 function startRound(room, n) {
   const s = room.state;
   s.round = n;
@@ -230,10 +239,16 @@ function startRound(room, n) {
   s.last = null;
   s.torches = { A: TORCHES, B: TORCHES };
   s.gems = { A: 0, B: 0 };
-  room.phase = 'survey';
-  room.sound('open');
-  room.say(n === 1 ? say.survey : `Раунд ${n}. ${ROUNDS[n - 1].title}.`);
-  room.setTimer(T.survey, () => startGuess(room));
+  room.phase = 'descend';
+  room.sound('rumble');
+  room.say(n === 1 ? `Ярус первый. ${ROUNDS[0].title}.` : `${pick(say.descend)} Ярус ${n}. ${ROUNDS[n - 1].title}.`);
+  room.setTimer(T.descend + (n === 1 ? 0 : 1), () => {
+    room.phase = 'survey';
+    room.sound('open');
+    room.say(say.survey);
+    room.setTimer(T.survey, () => startGuess(room));
+    room.push();
+  });
   room.push();
 }
 
